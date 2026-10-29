@@ -4291,44 +4291,6 @@ window.kirimLaporanPraktikum = async function(event) {
     }
 };
 
-// 3. Tambahan Tombol Cetak PDF Laporan di Dashboard Guru
-var origBukaLaporanSiswa = window.bukaLaporanSiswa;
-window.bukaLaporanSiswa = function() {
-    if (typeof origBukaLaporanSiswa === 'function') origBukaLaporanSiswa();
-    const wadah = document.getElementById('tempat-laporan-guru');
-    const key = document.getElementById('select-laporan-siswa').value;
-    
-    if (key && !document.getElementById('btn-print-laporan')) {
-        const btnPrint = document.createElement('button');
-        btnPrint.id = 'btn-print-laporan';
-        btnPrint.innerHTML = '🖨️ Cetak PDF Laporan';
-        btnPrint.style.cssText = 'background:#2c3e50; color:#fff; border:none; padding:10px 15px; border-radius:6px; cursor:pointer; font-weight:bold; float:right; margin-bottom:15px;';
-        btnPrint.onclick = function() {
-            const clone = wadah.cloneNode(true);
-            const hapusBtn = clone.querySelector('#btn-print-laporan');
-            if (hapusBtn) hapusBtn.remove();
-            
-            const win = window.open('', '', 'width=900,height=700');
-            win.document.write(`
-                <html><head><title>Cetak Laporan Praktikum</title>
-                <style>
-                    body { font-family: 'Times New Roman', serif; padding: 30px; line-height: 1.5; color: #000; }
-                    h2 { border-bottom: 2px solid #000; padding-bottom: 10px; text-align: center; }
-                    h4 { margin-bottom: 5px; color: #000; }
-                    div { margin-bottom: 15px; }
-                    img { max-width: 100%; max-height: 400px; display: block; margin: 10px auto; }
-                    .content-box { border-left: 3px solid #000; padding-left: 15px; margin-bottom: 20px; white-space: pre-wrap; }
-                </style>
-                </head><body>${clone.innerHTML.replace(/border-left:4px solid #3498db;/g, 'border-left:3px solid #000;')}</body></html>
-            `);
-            win.document.close();
-            win.focus();
-            setTimeout(() => { win.print(); win.close(); }, 500);
-        };
-        wadah.insertBefore(btnPrint, wadah.firstChild);
-    }
-};
-
 
 // ============================================================================
 // MODUL CATATAN SISWA (STYLE GOOGLE KEEP) DI TABEL ABSENSI - REVISI FINAL
