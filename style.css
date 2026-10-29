@@ -976,3 +976,11 @@ input, select, textarea { box-sizing: border-box !important; max-width: 100% !im
     max-width: 100vw !important; width: auto !important;
     object-fit: contain !important; margin: 0 auto !important; 
 }
+
+/* PATCH: Memaksa Sub-Menu HP Selalu Paling Atas (Tidak Tenggelam) */
+.navbar { z-index: 999999 !important; }
+.navbar ul ul { 
+    z-index: 9999999 !important; 
+    position: fixed !important; 
+    box-shadow: 0 15px 40px rgba(0,0,0,0.3) !important;
+}
