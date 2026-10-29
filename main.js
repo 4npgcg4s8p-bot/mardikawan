@@ -341,7 +341,7 @@ window.exportWordKuis = function(wrapId, title) {
     document.body.appendChild(a); 
     a.click(); 
     document.body.removeChild(a);
-    setTimeout(() => URL.revokeObjectURL(url), 100);
+    setTimeout(() => URL.revokeObjectURL(url), 3000);
 };
 
 /* LOGIKA AI TUTOR & KUIS OTOMATIS (ANTI-LIMIT & AUTO-FALLBACK) */
