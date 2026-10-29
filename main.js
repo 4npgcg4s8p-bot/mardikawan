@@ -4455,3 +4455,196 @@ window.toggleCatatanSiswa = function(cIdx) {
     if (window.simpanAbsensiKeDB) window.simpanAbsensiKeDB();
     window.renderCatatanSiswa();
 };
+
+// ============================================================================
+// PATCH FINAL: PRAKTIKUM (UI ANGGOTA, SUBMIT, & FORMAT CETAK COVER FORMAL)
+// ============================================================================
+
+// 1. Suntik Otomatis Kolom 'Anggota' ke Form Siswa
+setTimeout(() => {
+    let prakNama = document.getElementById('prak-nama');
+    if (prakNama && !document.getElementById('prak-anggota')) {
+        prakNama.placeholder = "Nama Ketua Kelompok";
+        let container = prakNama.parentElement;
+        let anggotaHtml = '<textarea id="prak-anggota" placeholder="Nama Anggota Kelompok (Pisahkan dengan baris baru / Enter)&#10;Anggota 1&#10;Anggota 2&#10;dst..." style="width:100%; height:80px; padding:10px; margin-bottom:15px; border:1px solid #bdc3c7; border-radius:6px; resize:vertical; box-sizing:border-box; font-family:\'Poppins\', sans-serif;"></textarea>';
+        container.insertAdjacentHTML('afterend', anggotaHtml);
+    }
+}, 1500);
+
+// 2. Timpa Fungsi Kirim Laporan (Menangkap Anggota & Auto-Save)
+window.kirimLaporanPraktikum = async function(event) {
+    var judul = document.getElementById('prak-judul') ? document.getElementById('prak-judul').value : '';
+    var nama = document.getElementById('prak-nama') ? document.getElementById('prak-nama').value : '';
+    var anggota = document.getElementById('prak-anggota') ? document.getElementById('prak-anggota').value : '-';
+    var kelas = document.getElementById('prak-kelas') ? document.getElementById('prak-kelas').value : '';
+    var bab1 = document.getElementById('prak-bab1') ? document.getElementById('prak-bab1').value : '';
+    var bab2 = document.getElementById('prak-bab2') ? document.getElementById('prak-bab2').value : '';
+    var bab3 = document.getElementById('prak-bab3') ? document.getElementById('prak-bab3').value : '';
+    var bab4 = document.getElementById('prak-bab4') ? document.getElementById('prak-bab4').value : '';
+    var kes = document.getElementById('prak-kesimpulan') ? document.getElementById('prak-kesimpulan').value : '';
+    var fileInput = document.getElementById('prak-lampiran');
+    var statusEl = document.getElementById('prak-status');
+
+    if (!judul || !nama || !kelas || !bab1 || !bab4) {
+        alert("⚠️ Gagal: Mohon lengkapi data wajib (Judul, Nama Ketua, Kelas, Bab 1, dan Bab 4)!");
+        return;
+    }
+
+    var btn = event.target;
+    btn.disabled = true; btn.style.background = "#95a5a6";
+    statusEl.innerHTML = "<span style='color:#f39c12;'>⏳ Menyiapkan dokumen laporan...</span>";
+
+    try {
+        var lampiranUrl = "";
+        if (fileInput && fileInput.files && fileInput.files[0]) {
+            statusEl.innerHTML = "<span style='color:#f39c12;'>☁️ Mengunggah bukti foto ke Cloud...</span>";
+            var reader = new FileReader();
+            lampiranUrl = await new Promise((resolve) => {
+                reader.onload = async function(e) {
+                    var url = await window.uploadKeImgBB(e.target.result);
+                    resolve(url);
+                };
+                reader.readAsDataURL(fileInput.files[0]);
+            });
+        }
+
+        statusEl.innerHTML = "<span style='color:#f39c12;'>💾 Mengirim ke meja guru...</span>";
+        var idLaporan = Date.now() + "_" + nama.replace(/[^a-zA-Z0-9]/g, '');
+        var dbRestUrl = window.getRestDBUrl("laporan_praktikum/" + idLaporan);
+
+        var payload = {
+            judul: judul, nama: nama, anggota: anggota, kelas: kelas,
+            bab1: bab1, bab2: bab2, bab3: bab3, bab4: bab4, kesimpulan: kes,
+            lampiran: lampiranUrl, waktu: new Date().toLocaleString('id-ID')
+        };
+
+        await fetch(dbRestUrl, { method: 'PUT', body: JSON.stringify(payload) });
+
+        statusEl.innerHTML = "<span style='color:#2ecc71;'>✅ Laporan berhasil dikumpulkan!</span>";
+        
+        // Hapus draf auto-save jika sukses
+        const fields = ['prak-judul', 'prak-nama', 'prak-anggota', 'prak-kelas', 'prak-bab1', 'prak-bab2', 'prak-bab3', 'prak-bab4', 'prak-kesimpulan'];
+        fields.forEach(id => localStorage.removeItem('draft_' + id));
+
+        setTimeout(function(){
+            document.getElementById('modal-praktikum').style.display = 'none';
+            statusEl.innerText = "";
+            btn.disabled = false; btn.style.background = "#3498db";
+            fields.forEach(id => { if(document.getElementById(id)) document.getElementById(id).value=''; });
+            if(fileInput) fileInput.value = '';
+        }, 2000);
+
+    } catch (err) {
+        statusEl.innerHTML = "<span style='color:#e74c3c;'>❌ Gagal mengirim: " + err.message + "</span>";
+        btn.disabled = false; btn.style.background = "#3498db";
+    }
+};
+
+// 3. Timpa Fungsi Buka Laporan (Format Cover Formal & Print)
+window.bukaLaporanSiswa = function() {
+    const wadah = document.getElementById('tempat-laporan-guru');
+    const key = document.getElementById('select-laporan-siswa').value;
+    
+    if (!key) { wadah.innerHTML = '<i>Pilih siswa untuk melihat laporan.</i>'; return; }
+
+    var lap = window.dataLaporanTemp[key];
+    var imgHtml = lap.lampiran ? '<a href="'+lap.lampiran+'" target="_blank"><img src="'+lap.lampiran+'" style="max-width:100%; max-height:400px; border-radius:8px; margin-top:15px; box-shadow:0 4px 10px rgba(0,0,0,0.1); cursor:zoom-in;" title="Klik untuk memperbesar"></a>' : '<i>(Siswa tidak melampirkan foto dokumentasi)</i>';
+    var formatBab = (judul, isi) => '<div style="margin-bottom:20px;"><h4 style="margin:0 0 5px 0; color:#2980b9; border-bottom:1px solid #ecf0f1; padding-bottom:5px;">'+judul+'</h4><div style="background:#fff; padding:15px; border-left:4px solid #3498db; border-radius:0 4px 4px 0; white-space:pre-wrap; box-shadow:0 1px 3px rgba(0,0,0,0.05); font-size:14px;">'+(isi || '-')+'</div></div>';
+
+    wadah.innerHTML = 
+        '<div style="border-bottom:2px dashed #bdc3c7; padding-bottom:15px; margin-bottom:20px; text-align:center;">' +
+            '<h2 style="margin:0; text-transform:uppercase; color:#2c3e50; font-size:20px;">' + lap.judul + '</h2>' +
+            '<p style="margin:5px 0 0 0; font-size:16px;"><b>Ketua: ' + lap.nama + '</b> (Kelas ' + lap.kelas + ')</p>' +
+            '<p style="margin:5px 0 0 0; font-size:14px; color:#555;">Anggota: ' + (lap.anggota && lap.anggota !== '-' ? lap.anggota.replace(/\n/g, ', ') : '-') + '</p>' +
+            '<small style="color:#7f8c8d;">Dikirim pada: ' + lap.waktu + '</small>' +
+        '</div>' +
+        formatBab('BAB I: Pendahuluan', lap.bab1) +
+        formatBab('BAB II: Dasar Teori', lap.bab2) +
+        formatBab('BAB III: Alat, Bahan & Cara Kerja', lap.bab3) +
+        formatBab('BAB IV: Hasil Pengamatan & Pembahasan', lap.bab4) +
+        formatBab('BAB V: Kesimpulan', lap.kesimpulan) +
+        '<div style="margin-bottom:15px;"><h4 style="margin:0 0 5px 0; color:#2980b9;">📸 Lampiran Dokumentasi</h4>' + imgHtml + '</div>';
+
+    if (!document.getElementById('btn-print-laporan')) {
+        const btnPrint = document.createElement('button');
+        btnPrint.id = 'btn-print-laporan';
+        btnPrint.innerHTML = '🖨️ Cetak PDF Laporan';
+        btnPrint.style.cssText = 'background:#2c3e50; color:#fff; border:none; padding:10px 15px; border-radius:6px; cursor:pointer; font-weight:bold; float:right; margin-bottom:15px;';
+        
+        btnPrint.onclick = function() {
+            var strAnggota = '';
+            if (lap.anggota && lap.anggota !== '-') {
+                var arrAnggota = lap.anggota.split('\n').filter(Boolean);
+                arrAnggota.forEach(function(n) {
+                    strAnggota += '<div style="font-size:14pt; margin-top:5px;">' + n.trim() + '</div>';
+                });
+            }
+
+            var htmlCetak = `
+            <html><head><title>Cetak Laporan - ${lap.judul}</title>
+            <style>
+                @media print {
+                    @page { margin: 2.5cm; }
+                    .page-break { page-break-before: always; }
+                    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+                }
+                body { font-family: 'Times New Roman', serif; line-height: 1.5; color: #000; padding: 20px; max-width: 800px; margin: 0 auto; }
+                .cover-page { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; min-height: 90vh; }
+                .cover-title { font-size: 16pt; font-weight: bold; text-transform: uppercase; margin-bottom: 40px; }
+                .cover-logo { width: 180px; height: auto; margin-bottom: 40px; }
+                .cover-section { font-size: 14pt; font-weight: bold; margin-bottom: 40px; }
+                .cover-footer { font-size: 16pt; font-weight: bold; text-transform: uppercase; margin-top: auto; padding-top: 60px; }
+                .content-page { padding-top: 20px; }
+                h4 { margin: 25px 0 10px 0; color: #000; font-size:14pt; border-bottom:1px solid #ccc; padding-bottom:5px;}
+                .content-box { margin-bottom: 20px; white-space: pre-wrap; text-align: justify; font-size: 12pt; }
+                img.lampiran { max-width: 100%; max-height: 500px; display: block; margin: 20px auto; }
+            </style>
+            </head><body>
+                <div class="cover-page">
+                    <div class="cover-title">
+                        LAPORAN PRAKTIKUM LABORATORIUM<br><br>
+                        ${lap.judul.toUpperCase()}
+                    </div>
+                    <img src="https://i.ibb.co/3s6qM0Z/logo-bodhi.png" class="cover-logo" alt="Logo Bodhi Dharma">
+                    <div class="cover-section">
+                        PEMBIMBING:<br><br>
+                        Mahardika Wiryawan, S.Pd
+                    </div>
+                    <div class="cover-section">
+                        Oleh:<br><br>
+                        <div style="font-size:14pt;">Ketua: ${lap.nama}</div>
+                        ${strAnggota}
+                    </div>
+                    <div class="cover-footer">
+                        SMAS BODHI DHARMA<br>
+                        TAHUN 2026
+                    </div>
+                </div>
+                <div class="page-break content-page">
+                    <h4>BAB I: Pendahuluan (Latar Belakang & Tujuan)</h4>
+                    <div class="content-box">${lap.bab1 || '-'}</div>
+                    <h4>BAB II: Dasar Teori</h4>
+                    <div class="content-box">${lap.bab2 || '-'}</div>
+                    <h4>BAB III: Alat, Bahan & Cara Kerja</h4>
+                    <div class="content-box">${lap.bab3 || '-'}</div>
+                    <h4>BAB IV: Hasil Pengamatan & Pembahasan</h4>
+                    <div class="content-box">${lap.bab4 || '-'}</div>
+                    <h4>BAB V: Kesimpulan</h4>
+                    <div class="content-box">${lap.kesimpulan || '-'}</div>
+                    <h4>Lampiran Dokumentasi</h4>
+                    ${lap.lampiran ? `<img src="${lap.lampiran}" class="lampiran">` : '<i>(Siswa tidak melampirkan foto dokumentasi)</i>'}
+                </div>
+            </body></html>
+            `;
+            
+            const win = window.open('', '', 'width=900,height=800');
+            win.document.write(htmlCetak);
+            win.document.close();
+            win.focus();
+            
+            // Jeda 1 detik agar gambar logo termuat sempurna sebelum dialog print muncul
+            setTimeout(() => { win.print(); }, 1000);
+        };
+        wadah.insertBefore(btnPrint, wadah.firstChild);
+    }
+};
