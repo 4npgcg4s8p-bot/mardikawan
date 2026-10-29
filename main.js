@@ -1383,27 +1383,46 @@ window.tabAdminAktif = 'absensi';
 
 window.bukaModalAdministrasi = function(tabAwal) {
     if (window.bersihkanOverlayPenghalang) window.bersihkanOverlayPenghalang();
-    var m = document.getElementById('modal-ruang-administrasi');
-    if (!m) {
-        var html =
-        '<div id="modal-ruang-administrasi" class="mahardika-modal-wrap" style="display:flex;">' +
-            '<div class="mahardika-modal-card modal-box" style="max-width:1020px; height:90vh;">' +
-                '<div style="background:#0b3954; color:#fff; padding:14px 20px; display:flex; justify-content:space-between; align-items:center;">' +
-                    '<h3 style="margin:0; font-size:17px;">📁 Ruang Administrasi Guru</h3>' +
-                    '<button type="button" onclick="document.getElementById(\'modal-ruang-administrasi\').style.display=\'none\'" style="background:rgba(255,255,255,0.2); border:none; color:#fff; width:32px; height:32px; border-radius:50%; font-size:16px; cursor:pointer; font-weight:bold;">✕</button>' +
-                '</div>' +
-                '<div class="admin-hub-tabs">' +
-                    '<button type="button" id="tab-btn-absensi" class="admin-tab-btn active" onclick="window.gantiTabAdministrasi(\'absensi\')">📋 Absensi Siswa (Excel Per Kelas)</button>' +
-                    '<button type="button" id="tab-btn-agenda" class="admin-tab-btn" onclick="window.gantiTabAdministrasi(\'agenda\')">📅 Agenda Mengajar & Rencana Pertemuan</button>' +
-                '</div>' +
-                '<div id="body-ruang-administrasi" style="padding:18px; overflow-y:auto; flex:1; background:#ffffff;"></div>' +
-            '</div>' +
-        '</div>';
-        document.body.insertAdjacentHTML('beforeend', html);
-    } else {
-        m.style.display = 'flex';
+    var daftarKls = window.ambilDaftarKelasAktif();
+    if (!window.kelasAdminUtama || !daftarKls.includes(window.kelasAdminUtama)) {
+        window.kelasAdminUtama = daftarKls[0] || "X-1";
     }
-    window.gantiTabAdministrasi(tabAwal === 'agenda' ? 'agenda' : 'absensi');
+
+    var m = document.getElementById('modal-ruang-administrasi');
+    if (m) m.remove(); // Bersihkan yang lama agar tombol X tidak bentrok
+
+    var html =
+    '<div id="modal-ruang-administrasi" class="mahardika-modal-wrap" style="display:flex;">' +
+        '<div class="mahardika-modal-card modal-box" style="max-width:1080px; height:90vh;">' +
+            '<div style="background:#0b3954; color:#fff; padding:14px 20px; display:flex; justify-content:space-between; align-items:center;">' +
+                '<h3 style="margin:0; font-size:17px;">📁 Ruang Administrasi Guru</h3>' +
+                // PERBAIKAN TOMBOL X: Menggunakan .remove() agar benar-benar tertutup
+                '<button type="button" onclick="document.getElementById(\'modal-ruang-administrasi\').remove()" style="background:rgba(255,255,255,0.2); border:none; color:#fff; width:32px; height:32px; border-radius:50%; font-size:16px; cursor:pointer; font-weight:bold;">✕</button>' +
+            '</div>' +
+
+            '<div class="admin-top-class-bar">' +
+                '<div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">' +
+                    '<span style="font-weight:700; font-size:14px; color:#0b3954;">🏫 Pilih Kelas Terlebih Dahulu:</span>' +
+                    '<select id="select-kelas-admin-utama" onchange="window.ubahKelasAdminUtama(this.value)" style="padding:8px 16px; border:2px solid #0b3954; border-radius:8px; font-weight:bold; font-size:14px; color:#0b3954; background:#fff; min-width:200px; cursor:pointer;"></select>' +
+                '</div>' +
+                '<div id="info-ringkas-kelas-admin" style="font-size:12px; font-weight:600; color:#2980b9;"></div>' +
+            '</div>' +
+
+            '<div class="admin-hub-tabs" style="flex-wrap:wrap;">' +
+                '<button type="button" id="tab-btn-absensi" class="admin-tab-btn active" onclick="window.gantiTabAdministrasi(\'absensi\')">📋 Absensi Siswa</button>' +
+                '<button type="button" id="tab-btn-agenda" class="admin-tab-btn" onclick="window.gantiTabAdministrasi(\'agenda\')">📅 Agenda Mengajar</button>' +
+                '<button type="button" id="tab-btn-datasiswa" class="admin-tab-btn" onclick="window.gantiTabAdministrasi(\'datasiswa\')">👥 Input Data Siswa & Kelas</button>' +
+                '<button type="button" id="tab-btn-reminder" class="admin-tab-btn" onclick="window.gantiTabAdministrasi(\'reminder\')" style="position:relative;">🔔 Reminder <span id="badge-tab-reminder" style="display:none; background:#e74c3c; color:#fff; padding:1px 7px; border-radius:12px; font-size:11px; margin-left:5px;">0</span></button>' +
+            '</div>' +
+
+            '<div id="body-ruang-administrasi" style="padding:18px; overflow-y:auto; flex:1; background:#ffffff;"></div>' +
+        '</div>' +
+    '</div>';
+
+    document.body.insertAdjacentHTML('beforeend', html);
+    window.perbaruiDropdownKelasAdminUtama();
+    var targetTab = (tabAwal === 'agenda' || tabAwal === 'datasiswa' || tabAwal === 'reminder') ? tabAwal : 'absensi';
+    window.gantiTabAdministrasi(targetTab);
 };
 
 window.gantiTabAdministrasi = function(namaTab) {
@@ -2210,17 +2229,17 @@ window.bukaModalAdministrasi = function(tabAwal) {
     }
 
     var m = document.getElementById('modal-ruang-administrasi');
-    if (m) m.remove(); // Buat ulang dengan struktur terbaru (Pilih Kelas di Atas)
+    if (m) m.remove(); // Bersihkan yang lama agar tombol X tidak bentrok
 
     var html =
     '<div id="modal-ruang-administrasi" class="mahardika-modal-wrap" style="display:flex;">' +
-        '<div class="mahardika-modal-card modal-box" style="max-width:1040px; height:90vh;">' +
+        '<div class="mahardika-modal-card modal-box" style="max-width:1080px; height:90vh;">' +
             '<div style="background:#0b3954; color:#fff; padding:14px 20px; display:flex; justify-content:space-between; align-items:center;">' +
                 '<h3 style="margin:0; font-size:17px;">📁 Ruang Administrasi Guru</h3>' +
-                '<button type="button" onclick="document.getElementById(\'modal-ruang-administrasi\').style.display=\'none\'" style="background:rgba(255,255,255,0.2); border:none; color:#fff; width:32px; height:32px; border-radius:50%; font-size:16px; cursor:pointer; font-weight:bold;">✕</button>' +
+                // PERBAIKAN TOMBOL X: Menggunakan .remove() agar benar-benar tertutup
+                '<button type="button" onclick="document.getElementById(\'modal-ruang-administrasi\').remove()" style="background:rgba(255,255,255,0.2); border:none; color:#fff; width:32px; height:32px; border-radius:50%; font-size:16px; cursor:pointer; font-weight:bold;">✕</button>' +
             '</div>' +
 
-            // BAR PILIH KELAS DI ATAS TOMBOL ABSENSI & AGENDA
             '<div class="admin-top-class-bar">' +
                 '<div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">' +
                     '<span style="font-weight:700; font-size:14px; color:#0b3954;">🏫 Pilih Kelas Terlebih Dahulu:</span>' +
@@ -2229,11 +2248,11 @@ window.bukaModalAdministrasi = function(tabAwal) {
                 '<div id="info-ringkas-kelas-admin" style="font-size:12px; font-weight:600; color:#2980b9;"></div>' +
             '</div>' +
 
-            // DERETAN TOMBOL TAB: ABSENSI, AGENDA, DAN INPUT DATA SISWA
-            '<div class="admin-hub-tabs">' +
+            '<div class="admin-hub-tabs" style="flex-wrap:wrap;">' +
                 '<button type="button" id="tab-btn-absensi" class="admin-tab-btn active" onclick="window.gantiTabAdministrasi(\'absensi\')">📋 Absensi Siswa</button>' +
                 '<button type="button" id="tab-btn-agenda" class="admin-tab-btn" onclick="window.gantiTabAdministrasi(\'agenda\')">📅 Agenda Mengajar</button>' +
                 '<button type="button" id="tab-btn-datasiswa" class="admin-tab-btn" onclick="window.gantiTabAdministrasi(\'datasiswa\')">👥 Input Data Siswa & Kelas</button>' +
+                '<button type="button" id="tab-btn-reminder" class="admin-tab-btn" onclick="window.gantiTabAdministrasi(\'reminder\')" style="position:relative;">🔔 Reminder <span id="badge-tab-reminder" style="display:none; background:#e74c3c; color:#fff; padding:1px 7px; border-radius:12px; font-size:11px; margin-left:5px;">0</span></button>' +
             '</div>' +
 
             '<div id="body-ruang-administrasi" style="padding:18px; overflow-y:auto; flex:1; background:#ffffff;"></div>' +
@@ -2242,7 +2261,8 @@ window.bukaModalAdministrasi = function(tabAwal) {
 
     document.body.insertAdjacentHTML('beforeend', html);
     window.perbaruiDropdownKelasAdminUtama();
-    window.gantiTabAdministrasi(tabAwal === 'agenda' ? 'agenda' : (tabAwal === 'datasiswa' ? 'datasiswa' : 'absensi'));
+    var targetTab = (tabAwal === 'agenda' || tabAwal === 'datasiswa' || tabAwal === 'reminder') ? tabAwal : 'absensi';
+    window.gantiTabAdministrasi(targetTab);
 };
 
 window.perbaruiDropdownKelasAdminUtama = function() {
@@ -4464,7 +4484,7 @@ window.bukaLaporanSiswaLengkap = function() {
                 .page { width: 210mm; min-height: 297mm; padding: 25mm 20mm; box-sizing: border-box; margin: 0 auto; background: #fff; position: relative; page-break-after: always; }
                 .page-num { position: absolute; bottom: 15mm; right: 20mm; font-size: 12pt; font-weight: normal; }
                 
-                .cover { text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center;}
+                .cover { text-align: center; display: block; padding-top: 50px; }
                 .cover h1 { font-size: 18pt; text-transform: uppercase; margin-bottom: 5px; }
                 .cover h2 { font-size: 16pt; text-transform: uppercase; margin-bottom: 10px; font-weight: normal; }
                 .cover img { max-width: 180px; margin: 30px 0; }
@@ -4719,19 +4739,17 @@ window.inisialisasiSatuCanvas = function(cvs, isTypingResize) {
 };
 
 // ----------------------------------------------------------------------------
-// 3. MESIN FULLSCREEN TANGGUH UNTUK SEMUA BROWSER DAN HP
+// 3. MESIN FULLSCREEN TANGGUH (TOGGLE: KLIK MASUK, KLIK LAGI KELUAR)
 // ----------------------------------------------------------------------------
 window.eksekusiFullscreenTangguh = function(elem, isDark) {
     var isNativeFS = document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement;
     var isPseudoFS = elem.classList.contains('mardi-pseudo-fs');
 
-    // KELUAR FULLSCREEN (MINIMIZE)
+    // JIKA SEDANG FULLSCREEN -> FUNGSI SEBAGAI MINIMIZE (KELUAR)
     if (isNativeFS || isPseudoFS) {
         if (isNativeFS) {
-            if (document.exitFullscreen) document.exitFullscreen();
+            if (document.exitFullscreen) document.exitFullscreen().catch(()=>{});
             else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
-            else if (document.mozCancelFullScreen) document.mozCancelFullScreen();
-            else if (document.msExitFullscreen) document.msExitFullscreen();
         }
         elem.classList.remove('mardi-pseudo-fs', 'mardi-pseudo-fs-dark', 'mardi-pseudo-fs-light');
         document.body.style.overflow = 'auto';
@@ -4740,12 +4758,12 @@ window.eksekusiFullscreenTangguh = function(elem, isDark) {
         return;
     }
 
-    // MASUK FULLSCREEN
+    // JIKA BELUM FULLSCREEN -> FUNGSI SEBAGAI MAXIMIZE (MASUK)
     var jalankanPseudoFS = function() {
         elem.classList.add('mardi-pseudo-fs');
         elem.classList.add(isDark ? 'mardi-pseudo-fs-dark' : 'mardi-pseudo-fs-light');
         document.body.style.overflow = 'hidden';
-        sesuaikanLayarUniversal(); 
+        if (typeof sesuaikanLayarUniversal === 'function') sesuaikanLayarUniversal(); 
         
         if (!elem.querySelector('.btn-close-pseudo-mardi')) {
             var btnExit = document.createElement('button');
@@ -4754,37 +4772,40 @@ window.eksekusiFullscreenTangguh = function(elem, isDark) {
             btnExit.onclick = function(e) {
                 e.stopPropagation(); e.preventDefault();
                 window.eksekusiFullscreenTangguh(elem, isDark); // Klik lagi untuk keluar
-                if(window.keluarBlockFullscreen) window.keluarBlockFullscreen();
+                if (window.keluarBlockFullscreen) window.keluarBlockFullscreen();
             };
             elem.appendChild(btnExit);
         }
     };
 
+    // Mencoba fitur native HP dulu
     var promise = null;
     if (elem.requestFullscreen) promise = elem.requestFullscreen();
     else if (elem.webkitRequestFullscreen) promise = elem.webkitRequestFullscreen();
     else if (elem.mozRequestFullScreen) promise = elem.mozRequestFullScreen();
-    else if (elem.msRequestFullscreen) promise = elem.msRequestFullscreen();
 
     if (promise !== undefined && promise !== null) {
-        promise.catch(function(err) { jalankanPseudoFS(); }); // Paksa buatan jika ditolak Safari/HP
+        promise.catch(function(err) { jalankanPseudoFS(); }); // Paksa buatan jika ditolak
     } else {
-        jalankanPseudoFS(); // Paksa buatan jika browser jadul / tidak ada API Fullscreen
+        jalankanPseudoFS(); // Paksa buatan jika HP iPhone
     }
 };
 
-// Hubungkan Semua Tombol Bawaan ke Mesin Tangguh
-window.toggleFullScreen = function() { window.eksekusiFullscreenTangguh(document.documentElement, false); };
+window.toggleFullScreen = function() { 
+    window.eksekusiFullscreenTangguh(document.documentElement, false); 
+};
 
 window.toggleBlockFullscreen = function(btnEl, index) {
     var wrapper = document.querySelector('.block-wrapper[data-index="' + index + '"]');
     if (!wrapper) return;
     
+    // Jika tombol Fokus di-klik dan sudah fokus, maka artinya Keluar
     if (wrapper.classList.contains('block-fullscreen-active') || wrapper.classList.contains('mardi-pseudo-fs')) {
         window.keluarBlockFullscreen();
         return;
     }
     
+    // Bersihkan sisa jika ada
     document.querySelectorAll('.block-fullscreen-active, .mardi-pseudo-fs').forEach(function(el) {
         el.classList.remove('block-fullscreen-active', 'mardi-pseudo-fs', 'mardi-pseudo-fs-light', 'mardi-pseudo-fs-dark');
         var btnOld = el.querySelector('.btn-close-pseudo-mardi');
@@ -4798,7 +4819,6 @@ window.toggleBlockFullscreen = function(btnEl, index) {
     if(bar) bar.style.display = 'flex';
     
     window.eksekusiFullscreenTangguh(wrapper, false);
-    
     setTimeout(function() { if (window.muatUlangSemuaKanvasGambar) window.muatUlangSemuaKanvasGambar(); }, 300);
 };
 
@@ -4811,7 +4831,7 @@ window.keluarBlockFullscreen = function() {
         
         var isNativeFS = document.fullscreenElement || document.webkitFullscreenElement;
         if (isNativeFS) {
-            if (document.exitFullscreen) document.exitFullscreen();
+            if (document.exitFullscreen) document.exitFullscreen().catch(()=>{});
             else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
         }
     });
@@ -4822,7 +4842,6 @@ window.keluarBlockFullscreen = function() {
     var bar = document.getElementById('fokus-floating-bar');
     if (bar) bar.style.display = 'none';
     if (window.isDrawingMode && typeof window.toggleDrawingMode === 'function') window.toggleDrawingMode();
-    
     setTimeout(function() { if (window.muatUlangSemuaKanvasGambar) window.muatUlangSemuaKanvasGambar(); }, 300);
 };
 
