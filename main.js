@@ -3006,153 +3006,230 @@ window.tambahPantauUjianKelas = function() {
     window.tampilkanToastFullscreen("✓ Ujian '" + namaUjian + "' kini dipantau untuk kelas " + kls);
 };
 
-window.tampilkanUIReminder = function() {
-    var body = document.getElementById('body-ruang-administrasi');
-    if (!body) return;
-    var klsAktif = window.kelasAdminUtama || window.ambilDaftarKelasAktif()[0];
-    var daftarTarget = window.modeFilterReminder === 'SEMUA_KELAS' ? window.ambilDaftarKelasAktif() : [klsAktif];
-    var dataRem = window.kumpulkanDataReminder(daftarTarget);
+// ============================================================================
+// PERBAIKAN LOGO PDF & CETAK LAPORAN 7 HALAMAN
+// ============================================================================
+window.bukaLaporanSiswaLengkap = function() {
+    var key = document.getElementById('select-laporan-siswa').value;
+    var wadah = document.getElementById('tempat-laporan-guru');
+    if (!key) { wadah.innerHTML = '<i style="color:#7f8c8d;">Pilih siswa untuk melihat laporan.</i>'; return; }
 
-    // Kumpulkan semua nama paket ujian yang tersedia untuk fitur pantau ujian per kelas
-    var semuaNamaUjian = new Set();
-    Object.keys(window.bankUjianGlobal || {}).forEach(function(u) { semuaNamaUjian.add(u); });
-    Object.keys(window.dataRekapNilai || {}).forEach(function(u) { semuaNamaUjian.add(u); });
-    Object.values(window.rekapNilaiGlobal || {}).forEach(function(d) { if (d && d.ujian) semuaNamaUjian.add(d.ujian); });
-    var opsiUjianHtml = '<option value="">-- Pilih Paket Ujian untuk Dipantau di Kelas ' + klsAktif + ' --</option>' +
-        Array.from(semuaNamaUjian).sort().map(function(u) { return '<option value="' + u + '">' + u + '</option>'; }).join('');
+    var lap = window.dataLaporanTemp[key];
+    var imgHtml = '';
+    var lampiranPdfHtml = '';
 
-    // Render Bagian 1: Reminder Absensi (Ketinggalan Pelajaran)
-    var htmlAbsensi = '';
-    if (dataRem.grupAbsensi.length === 0) {
-        htmlAbsensi = '<div style="padding:20px; text-align:center; color:#64748b; background:#f8fafc; border:1px dashed #cbd5e1; border-radius:8px;">🎉 Tidak ada siswa yang ketinggalan materi pelajaran pada pilihan kelas ini.</div>';
+    if (lap.lampiranUrls && lap.lampiranUrls.length > 0) {
+        lap.lampiranUrls.forEach(url => {
+            imgHtml += `<a href="${url}" target="_blank"><img src="${url}" style="max-width:100%; max-height:300px; border-radius:8px; margin:5px 10px 5px 0; box-shadow:0 2px 5px rgba(0,0,0,0.1); display:inline-block;"></a>`;
+            lampiranPdfHtml += `<img src="${url}" class="lampiran-img" alt="Bukti Praktikum">`;
+        });
     } else {
-        htmlAbsensi = dataRem.grupAbsensi.map(function(grp) {
-            // JIKA HANYA 1 ANAK: Tampilkan baris langsung
-            if (grp.items.length === 1) {
-                var item = grp.items[0];
-                return '<div class="reminder-card-single">' +
-                    '<div>' +
-                        '<span style="background:#0b3954; color:#fff; padding:2px 8px; border-radius:4px; font-size:11px; font-weight:bold; margin-right:6px;">' + item.kelas + '</span>' +
-                        '<span style="color:#64748b; font-size:12px; margin-right:6px;">[' + item.waktu + ']</span> ' +
-                        window.labelStatusAbsenLengkap(item.status) + ' — ' +
-                        '<b style="color:#d35400; font-size:14px;">' + item.nama + '</b> perlu mengikuti <b style="color:#0b3954; text-decoration:underline;">' + item.materi + '</b>' +
-                    '</div>' +
-                    '<button type="button" class="btn-dismiss-reminder" title="Selesai / Hapus Pengingat" onclick="window.dismissSatuReminder(\'' + item.id + '\', event)">✕</button>' +
-                '</div>';
-            }
-
-            // JIKA LEBIH DARI 1 ANAK DI KELAS & HARI YANG SAMA: Bentuk Dropdown
-            var isOpen = !!window.statusBukaDropdownReminder[grp.groupKey];
-            var gabunganId = grp.items.map(function(i) { return i.id; }).join('|');
-            var subRows = grp.items.map(function(item, idx) {
-                return '<div class="reminder-sub-row">' +
-                    '<div>' +
-                        '<span style="font-weight:bold; color:#64748b; margin-right:6px;">' + (idx + 1) + '.</span>' +
-                        window.labelStatusAbsenLengkap(item.status) + ' — ' +
-                        '<b style="color:#d35400;">' + item.nama + '</b> perlu mengikuti <b style="color:#0b3954;">' + item.materi + '</b>' +
-                    '</div>' +
-                    '<button type="button" class="btn-dismiss-reminder" title="Selesai untuk ' + item.nama + '" onclick="window.dismissSatuReminder(\'' + item.id + '\', event)">✕</button>' +
-                '</div>';
-            }).join('');
-
-            return '<div class="reminder-group-box">' +
-                '<div class="reminder-group-header" onclick="window.toggleDropdownGrupReminder(\'' + grp.groupKey + '\')">' +
-                    '<div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">' +
-                        '<span id="rem-icon-' + grp.groupKey + '" style="font-weight:bold; font-size:15px; color:#0b3954; width:14px;">' + (isOpen ? '▾' : '▸') + '</span>' +
-                        '<span style="background:#0b3954; color:#fff; padding:2px 8px; border-radius:4px; font-size:11px; font-weight:bold;">' + grp.kelas + '</span>' +
-                        '<span style="color:#475569; font-weight:600;">[' + grp.waktu + ']</span>' +
-                        '<span style="background:#fef3c7; color:#b45309; padding:2px 9px; border-radius:12px; font-weight:bold; font-size:12px;">👥 ' + grp.items.length + ' Siswa Tidak Hadir</span>' +
-                        '<span>perlu mengikuti <b style="color:#0b3954; text-decoration:underline;">' + grp.materi + '</b></span>' +
-                    '</div>' +
-                    '<button type="button" class="btn-dismiss-reminder" title="Hapus Semua di Grup Ini" onclick="window.dismissGrupReminder(\'' + gabunganId + '\', event)">✕</button>' +
-                '</div>' +
-                '<div id="rem-body-' + grp.groupKey + '" class="reminder-group-body' + (isOpen ? ' open' : '') + '">' +
-                    subRows +
-                '</div>' +
-            '</div>';
-        }).join('');
+        imgHtml = '<i style="color:#7f8c8d;">(Siswa tidak melampirkan foto)</i>';
+        lampiranPdfHtml = '<p style="text-align:center;"><i>Tidak ada foto lampiran yang diunggah.</i></p>';
     }
 
-    // Render Bagian 2: Reminder Siswa Belum Mengikuti Ujian
-    var htmlUjian = '';
-    if (dataRem.grupUjian.length === 0) {
-        htmlUjian = '<div style="padding:20px; text-align:center; color:#64748b; background:#f8fafc; border:1px dashed #cbd5e1; border-radius:8px;">🎉 Semua siswa terdaftar telah mengikuti ujian yang dipantau (atau pilih paket ujian di atas untuk mulai memantau kelas ini).</div>';
-    } else {
-        htmlUjian = dataRem.grupUjian.map(function(grp) {
-            // JIKA HANYA 1 ANAK BELUM UJIAN: Tampilkan baris langsung
-            if (grp.items.length === 1) {
-                var item = grp.items[0];
-                return '<div class="reminder-card-single exam-type">' +
-                    '<div>' +
-                        '<span style="background:#c0392b; color:#fff; padding:2px 8px; border-radius:4px; font-size:11px; font-weight:bold; margin-right:6px;">' + item.kelas + '</span>' +
-                        '<b style="color:#c0392b; font-size:14px;">' + item.nama + '</b> perlu mengikuti ujian <b style="color:#0b3954; text-decoration:underline;">' + item.ujian + '</b>' +
-                    '</div>' +
-                    '<button type="button" class="btn-dismiss-reminder" title="Selesai / Hapus Pengingat" onclick="window.dismissSatuReminder(\'' + item.id + '\', event)">✕</button>' +
-                '</div>';
-            }
+    var formatBab = (judul, isi) => '<div style="margin-bottom:20px;"><h4 style="margin:0 0 5px 0; color:#2980b9; border-bottom:1px solid #ecf0f1; padding-bottom:5px;">'+judul+'</h4><div style="background:#fff; padding:15px; border-left:4px solid #3498db; border-radius:0 4px 4px 0; white-space:pre-wrap; font-size:14px;">'+(isi || '-')+'</div></div>';
+    var teksAnggotaLayar = (lap.anggota && lap.anggota.length > 0) ? ('<p style="margin:5px 0 0 0; font-size:14px; color:#34495e;"><b>Anggota:</b> ' + lap.anggota.join(', ') + '</p>') : '';
 
-            // JIKA LEBIH DARI 1 ANAK DI KELAS YANG SAMA BELUM UJIAN: Bentuk Dropdown
-            var isOpen = !!window.statusBukaDropdownReminder[grp.groupKey];
-            var gabunganId = grp.items.map(function(i) { return i.id; }).join('|');
-            var subRows = grp.items.map(function(item, idx) {
-                return '<div class="reminder-sub-row">' +
-                    '<div>' +
-                        '<span style="font-weight:bold; color:#64748b; margin-right:6px;">' + (idx + 1) + '.</span>' +
-                        '<b style="color:#c0392b;">' + item.nama + '</b> perlu mengikuti ujian <b style="color:#0b3954;">' + item.ujian + '</b>' +
-                    '</div>' +
-                    '<button type="button" class="btn-dismiss-reminder" title="Selesai untuk ' + item.nama + '" onclick="window.dismissSatuReminder(\'' + item.id + '\', event)">✕</button>' +
-                '</div>';
-            }).join('');
-
-            return '<div class="reminder-group-box exam-type">' +
-                '<div class="reminder-group-header" onclick="window.toggleDropdownGrupReminder(\'' + grp.groupKey + '\')">' +
-                    '<div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">' +
-                        '<span id="rem-icon-' + grp.groupKey + '" style="font-weight:bold; font-size:15px; color:#8e44ad; width:14px;">' + (isOpen ? '▾' : '▸') + '</span>' +
-                        '<span style="background:#8e44ad; color:#fff; padding:2px 8px; border-radius:4px; font-size:11px; font-weight:bold;">' + grp.kelas + '</span>' +
-                        '<span style="background:#fadbd8; color:#c0392b; padding:2px 9px; border-radius:12px; font-weight:bold; font-size:12px;">🎯 ' + grp.items.length + ' Siswa Belum Ujian</span>' +
-                        '<span>perlu mengikuti ujian <b style="color:#0b3954; text-decoration:underline;">' + grp.ujian + '</b></span>' +
-                    '</div>' +
-                    '<button type="button" class="btn-dismiss-reminder" title="Hapus Semua di Grup Ini" onclick="window.dismissGrupReminder(\'' + gabunganId + '\', event)">✕</button>' +
-                '</div>' +
-                '<div id="rem-body-' + grp.groupKey + '" class="reminder-group-body' + (isOpen ? ' open' : '') + '">' +
-                    subRows +
-                '</div>' +
-            '</div>';
-        }).join('');
-    }
-
-    body.innerHTML =
-        '<div style="display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:10px; background:#f8fafc; padding:12px 15px; border:1px solid #e2e8f0; border-radius:10px; margin-bottom:16px;">' +
-            '<div style="display:flex; align-items:center; gap:8px;">' +
-                '<span style="font-weight:bold; font-size:13px; color:#0b3954;">Tampilkan Pengingat:</span>' +
-                '<button type="button" onclick="window.modeFilterReminder=\'KELAS_INI\'; window.tampilkanUIReminder();" style="padding:6px 12px; border-radius:6px; border:1px solid #0b3954; font-weight:bold; font-size:12px; cursor:pointer; background:' + (window.modeFilterReminder === 'KELAS_INI' ? '#0b3954' : '#fff') + '; color:' + (window.modeFilterReminder === 'KELAS_INI' ? '#fff' : '#0b3954') + ';">🏫 Khusus Kelas ' + klsAktif + '</button>' +
-                '<button type="button" onclick="window.modeFilterReminder=\'SEMUA_KELAS\'; window.tampilkanUIReminder();" style="padding:6px 12px; border-radius:6px; border:1px solid #0b3954; font-weight:bold; font-size:12px; cursor:pointer; background:' + (window.modeFilterReminder === 'SEMUA_KELAS' ? '#0b3954' : '#fff') + '; color:' + (window.modeFilterReminder === 'SEMUA_KELAS' ? '#fff' : '#0b3954') + ';">📂 Semua Kelas</button>' +
-            '</div>' +
-            '<div style="font-size:12px; color:#64748b;">💡 Pengingat tidak akan hilang sebelum tombol <b>✕</b> ditekan.</div>' +
+    wadah.innerHTML = 
+        '<button id="btn-print-formal" style="background:#2c3e50; color:#fff; border:none; padding:10px 15px; border-radius:6px; cursor:pointer; font-weight:bold; float:right; margin-bottom:15px;">🖨️ Cetak Buku PDF (Kertas A4)</button>' +
+        '<div style="clear:both; border-bottom:2px dashed #bdc3c7; padding-bottom:15px; margin-bottom:20px; text-align:center;">' +
+            '<h2 style="margin:0; text-transform:uppercase; color:#2c3e50; font-size:20px;">LAPORAN: ' + lap.judul + '</h2>' +
+            '<p style="margin:5px 0 0 0; font-size:16px;"><b>Ketua: ' + lap.ketua + '</b> (Kelas ' + lap.kelas + ')</p>' +
+            teksAnggotaLayar +
+            '<small style="color:#7f8c8d;">Dikirim pada: ' + lap.waktu + '</small>' +
         '</div>' +
+        formatBab('Dasar Teori', lap.dasarTeori) +
+        formatBab('Alat dan Bahan', lap.alatBahan) +
+        formatBab('Metode Praktikum', lap.metode) +
+        formatBab('Hasil dan Pembahasan', lap.hasil) +
+        formatBab('Kesimpulan', lap.kesimpulan) +
+        formatBab('Daftar Pustaka', lap.dafpus) +
+        '<div style="margin-bottom:15px;"><h4 style="margin:0 0 5px 0; color:#2980b9;">📸 Lampiran Dokumentasi</h4>' + imgHtml + '</div>';
+    
+    document.getElementById('btn-print-formal').onclick = function() {
+        const bulanArr = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+        const dateObj = new Date();
+        const teksBulanTahun = bulanArr[dateObj.getMonth()] + ' ' + dateObj.getFullYear();
 
-        // BAGIAN 1: REMINDER MATERI PELAJARAN (ABSENSI -, A, S, I)
-        '<div style="margin-bottom:22px;">' +
-            '<h4 style="margin:0 0 10px 0; color:#0b3954; font-size:14px; display:flex; align-items:center; gap:8px;">📚 1. Pengingat Siswa Ketinggalan Materi Pelajaran (Status: -, A, S, I)</h4>' +
-            htmlAbsensi +
-        '</div>' +
+        let anggotaHtml = '';
+        if (lap.anggota && lap.anggota.length > 0) {
+            lap.anggota.forEach((nama, i) => {
+                anggotaHtml += `<p style="font-size:14pt; margin:5px 0;">Anggota ${i+1}: ${nama}</p>`;
+            });
+        }
 
-        // BAGIAN 2: REMINDER SISWA BELUM MENGIKUTI UJIAN
-        '<div>' +
-            '<div style="display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:10px; margin-bottom:10px;">' +
-                '<h4 style="margin:0; color:#c0392b; font-size:14px;">🎯 2. Pengingat Siswa Belum Mengikuti Ujian</h4>' +
-                '<div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">' +
-                    '<select id="select-pantau-ujian-baru" style="padding:6px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:12px;">' + opsiUjianHtml + '</select>' +
-                    '<button type="button" onclick="window.tambahPantauUjianKelas()" style="background:#8e44ad; color:#fff; border:none; padding:7px 12px; border-radius:6px; font-size:11px; font-weight:bold; cursor:pointer;">+ Cek Ujian di Kelas ' + klsAktif + '</button>' +
-                '</div>' +
-            '</div>' +
-            htmlUjian +
-        '</div>';
+        // PATCH LOGO: Menggunakan URL Absolut agar gambar terbaca di jendela Print (about:blank)
+        const baseUrl = window.location.href.split('?')[0].replace('index.html', '');
+        const urlLogo = baseUrl + 'logo-bodhi.png';
+
+        const win = window.open('', '', 'width=1000,height=800');
+        win.document.write(`
+            <html><head><title>Laporan Praktikum - ${lap.ketua}</title>
+            <style>
+                @page { size: A4; margin: 0; }
+                body { font-family: 'Times New Roman', serif; line-height: 1.5; color: #000; padding: 0; margin: 0; background: #eee; }
+                .page { width: 210mm; min-height: 297mm; padding: 25mm 20mm; box-sizing: border-box; margin: 0 auto; background: #fff; position: relative; page-break-after: always; }
+                .page-num { position: absolute; bottom: 15mm; right: 20mm; font-size: 12pt; font-weight: normal; }
+                
+                .cover { text-align: center; display: block; padding-top: 40px; }
+                .cover h1 { font-size: 18pt; text-transform: uppercase; margin-bottom: 5px; }
+                .cover h2 { font-size: 16pt; text-transform: uppercase; margin-bottom: 10px; font-weight: normal; }
+                .cover img { max-width: 180px; margin: 30px auto; display:block; }
+                .cover p, .cover h3 { margin: 5px 0; }
+                .cover .footer { position: absolute; bottom: 30mm; left: 0; right: 0; text-align: center; }
+                
+                .section-title { text-align: center; text-transform: uppercase; font-size: 14pt; margin-bottom: 30px; font-weight: bold; }
+                .toc p { margin: 10px 0; display: flex; justify-content: space-between; font-size: 12pt; font-weight: bold; }
+                .toc p span:first-child { flex: 1; border-bottom: 1px dotted #000; margin-right: 10px; }
+                .content-text { text-align: justify; font-size: 12pt; white-space: pre-wrap; }
+                .lampiran-img { max-width: 100%; max-height: 240mm; display: block; margin: 20px auto; page-break-inside: avoid; }
+            </style>
+            </head><body>
+                <div class="page cover">
+                    <h1>LAPORAN PRAKTIKUM LABORATORIUM</h1>
+                    <h2>"${lap.judul}"</h2>
+                    <img src="${urlLogo}" alt="Logo" onerror="this.style.display='none'">
+                    <h3 style="font-size:14pt; margin-top:20px;">PEMBIMBING:</h3>
+                    <p style="font-size:14pt; font-weight:bold; margin-bottom:40px;">Mahardika Wiryawan, S.Pd</p>
+                    <h3 style="font-size:14pt;">OLEH:</h3>
+                    <p style="font-size:14pt; font-weight:bold;">Ketua kelompok: ${lap.ketua}</p>
+                    ${anggotaHtml}
+                    <div class="footer">
+                        <h3 style="font-size:14pt; margin:0;">SMAS BODHI DHARMA BATAM</h3>
+                        <h3 style="font-size:14pt; margin:5px 0 0 0; font-weight:normal;">${teksBulanTahun}</h3>
+                    </div>
+                </div>
+
+                <div class="page">
+                    <div class="section-title">DAFTAR ISI</div>
+                    <div class="toc">
+                        <p><span>DAFTAR ISI</span> <span>ii</span></p>
+                        <p><span>DASAR TEORI</span> <span>1</span></p>
+                        <p><span>ALAT DAN BAHAN</span> <span>2</span></p>
+                        <p><span>METODE PRAKTIKUM</span> <span>3</span></p>
+                        <p><span>HASIL DAN PEMBAHASAN</span> <span>4</span></p>
+                        <p><span>KESIMPULAN</span> <span>5</span></p>
+                        <p><span>DAFTAR PUSTAKA</span> <span>6</span></p>
+                        <p><span>LAMPIRAN</span> <span>7</span></p>
+                    </div>
+                    <div class="page-num">ii</div>
+                </div>
+
+                <div class="page"><div class="section-title">DASAR TEORI</div><div class="content-text">${lap.dasarTeori || '-'}</div><div class="page-num">1</div></div>
+                <div class="page"><div class="section-title">ALAT DAN BAHAN</div><div class="content-text">${lap.alatBahan || '-'}</div><div class="page-num">2</div></div>
+                <div class="page"><div class="section-title">METODE PRAKTIKUM</div><div class="content-text">${lap.metode || '-'}</div><div class="page-num">3</div></div>
+                <div class="page"><div class="section-title">HASIL DAN PEMBAHASAN</div><div class="content-text">${lap.hasil || '-'}</div><div class="page-num">4</div></div>
+                <div class="page"><div class="section-title">KESIMPULAN</div><div class="content-text">${lap.kesimpulan || '-'}</div><div class="page-num">5</div></div>
+                <div class="page"><div class="section-title">DAFTAR PUSTAKA</div><div class="content-text">${lap.dafpus || '-'}</div><div class="page-num">6</div></div>
+                <div class="page"><div class="section-title">LAMPIRAN</div>${lampiranPdfHtml}<div class="page-num">7</div></div>
+            </body></html>
+        `);
+        win.document.close(); win.focus();
+        setTimeout(() => { win.print(); win.close(); }, 1200);
+    };
 };
 
-setTimeout(function() {
-    if (window.updateBadgeReminderAdmin) window.updateBadgeReminderAdmin();
-}, 1500);
+// ============================================================================
+// PERBAIKAN FULLSCREEN ANTI-FREEZE UNTUK HP (IOS & ANDROID)
+// ============================================================================
+(function pasangCSSFullscreenTangguh() {
+    if(document.getElementById('mardi-fs-patch')) return;
+    var style = document.createElement('style');
+    style.id = 'mardi-fs-patch';
+    style.innerHTML = `
+        :root { --vh: 1vh; }
+        .mardi-pseudo-fs {
+            position: fixed !important; top: 0 !important; left: 0 !important;
+            width: 100vw !important; height: 100vh !important;
+            height: calc(var(--vh, 1vh) * 100) !important; 
+            max-width: 100vw !important; max-height: calc(var(--vh, 1vh) * 100) !important;
+            z-index: 2147483640 !important; margin: 0 !important; border-radius: 0 !important;
+            /* PATCH FREEZE IOS: Tambahkan auto dan touch scroll */
+            overflow-y: auto !important; 
+            -webkit-overflow-scrolling: touch !important; 
+            box-sizing: border-box !important;
+        }
+        .mardi-pseudo-fs-dark { background: #000 !important; }
+        .mardi-pseudo-fs-light { background: #ecf0f1 !important; padding: 65px 25px 30px 25px !important; }
+        .mardi-pseudo-fs video, .mardi-pseudo-fs .mardi-slide-img { max-height: calc(var(--vh, 1vh) * 100) !important; height: calc(var(--vh, 1vh) * 100) !important; width: 100% !important; object-fit: contain !important; margin: 0 auto !important; }
+        .btn-close-pseudo-mardi { position: fixed !important; top: 15px !important; right: 15px !important; z-index: 2147483647 !important; background: rgba(231,76,60,0.95) !important; color: #fff !important; border: 2px solid #c0392b !important; padding: 8px 15px !important; border-radius: 30px !important; font-weight: bold !important; cursor: pointer !important; box-shadow: 0 4px 15px rgba(0,0,0,0.5) !important; font-size: 13px !important; font-family: sans-serif !important; }
+        
+        /* Modal Constraint untuk HP agar tidak meluber */
+        .modal-box, .mahardika-modal-card { max-width: 95vw !important; max-height: calc(var(--vh, 1vh) * 90) !important; margin: 0 auto; overflow-x: hidden; }
+    `;
+    document.head.appendChild(style);
+})();
+
+function sesuaikanLayarUniversal() {
+    let vh = window.innerHeight * 0.01;
+    document.documentElement.style.setProperty('--vh', `${vh}px`);
+    let fsElem = document.querySelector('.mardi-pseudo-fs');
+    if (fsElem) fsElem.style.height = window.innerHeight + 'px';
+}
+window.addEventListener('resize', sesuaikanLayarUniversal);
+window.addEventListener('orientationchange', function() { 
+    setTimeout(sesuaikanLayarUniversal, 250); 
+    setTimeout(function() { if (window.muatUlangSemuaKanvasGambar) window.muatUlangSemuaKanvasGambar(); }, 450); 
+});
+sesuaikanLayarUniversal(); 
+
+window.eksekusiFullscreenTangguh = function(elem, isDark) {
+    var isNativeFS = document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement;
+    var isPseudoFS = elem.classList.contains('mardi-pseudo-fs');
+    
+    if (isNativeFS || isPseudoFS) {
+        if (isNativeFS) { 
+            if (document.exitFullscreen) document.exitFullscreen().catch(()=>{}); 
+            else if (document.webkitExitFullscreen) document.webkitExitFullscreen(); 
+        }
+        elem.classList.remove('mardi-pseudo-fs', 'mardi-pseudo-fs-dark', 'mardi-pseudo-fs-light');
+        document.body.style.overflow = '';
+        var btnX = elem.querySelector('.btn-close-pseudo-mardi'); if (btnX) btnX.remove();
+        return;
+    }
+    
+    var jalankanPseudoFS = function() {
+        elem.classList.add('mardi-pseudo-fs');
+        elem.classList.add(isDark ? 'mardi-pseudo-fs-dark' : 'mardi-pseudo-fs-light');
+        document.body.style.overflow = 'hidden';
+        sesuaikanLayarUniversal(); 
+        if (!elem.querySelector('.btn-close-pseudo-mardi')) {
+            var btnExit = document.createElement('button'); btnExit.className = 'btn-close-pseudo-mardi'; btnExit.innerHTML = '✖ Keluar Layar Penuh';
+            btnExit.onclick = function(e) { e.stopPropagation(); e.preventDefault(); window.eksekusiFullscreenTangguh(elem, isDark); if(window.keluarBlockFullscreen) window.keluarBlockFullscreen(); };
+            elem.appendChild(btnExit);
+        }
+    };
+    
+    var promise = null;
+    if (elem.requestFullscreen) promise = elem.requestFullscreen(); else if (elem.webkitRequestFullscreen) promise = elem.webkitRequestFullscreen();
+    if (promise !== undefined && promise !== null) { promise.catch(function(err) { jalankanPseudoFS(); }); } else { jalankanPseudoFS(); }
+};
+
+window.toggleFullScreen = function() { window.eksekusiFullscreenTangguh(document.documentElement, false); };
+window.toggleBlockFullscreen = function(btnEl, index) {
+    var wrapper = document.querySelector('.block-wrapper[data-index="' + index + '"]'); if (!wrapper) return;
+    if (wrapper.classList.contains('block-fullscreen-active') || wrapper.classList.contains('mardi-pseudo-fs')) { window.keluarBlockFullscreen(); return; }
+    document.querySelectorAll('.block-fullscreen-active, .mardi-pseudo-fs').forEach(function(el) { el.classList.remove('block-fullscreen-active', 'mardi-pseudo-fs', 'mardi-pseudo-fs-light', 'mardi-pseudo-fs-dark'); var btnOld = el.querySelector('.btn-close-pseudo-mardi'); if (btnOld) btnOld.remove(); });
+    wrapper.classList.add('block-fullscreen-active'); wrapper.scrollTop = 0;
+    var bar = window.pastikanBarFokusAda(); if(bar) bar.style.display = 'flex';
+    window.eksekusiFullscreenTangguh(wrapper, false);
+    setTimeout(function() { if (window.muatUlangSemuaKanvasGambar) window.muatUlangSemuaKanvasGambar(); }, 300);
+};
+
+window.keluarBlockFullscreen = function() {
+    document.querySelectorAll('.block-fullscreen-active, .mardi-pseudo-fs').forEach(function(el) {
+        el.classList.remove('block-fullscreen-active', 'mardi-pseudo-fs', 'mardi-pseudo-fs-light', 'mardi-pseudo-fs-dark');
+        el.style.transform = 'none'; el.style.marginBottom = ''; el.style.zoom = 1;
+        var btnX = el.querySelector('.btn-close-pseudo-mardi'); if (btnX) btnX.remove();
+        var isNativeFS = document.fullscreenElement || document.webkitFullscreenElement;
+        if (isNativeFS) { if (document.exitFullscreen) document.exitFullscreen().catch(()=>{}); else if (document.webkitExitFullscreen) document.webkitExitFullscreen(); }
+    });
+    window.fokusZoomLevel = 1; document.body.style.overflow = '';
+    var bar = document.getElementById('fokus-floating-bar'); if (bar) bar.style.display = 'none';
+    if (window.isDrawingMode && typeof window.toggleDrawingMode === 'function') window.toggleDrawingMode();
+    setTimeout(function() { if (window.muatUlangSemuaKanvasGambar) window.muatUlangSemuaKanvasGambar(); }, 300);
+};
 
 // ============================================================================
 // PATCH ANTI-LAG SLIDER PDF
