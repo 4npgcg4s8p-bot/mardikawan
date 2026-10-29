@@ -1132,7 +1132,7 @@ window.renderTabelNilai=function(){
     tbody.innerHTML=h||`<tr><td colspan='${6+maxSoal}' style='text-align:center;'>Kosong.</td></tr>`; 
 };
 
-window.exportExcelNilai=function(){ let t=document.getElementById("tabel-spreadsheet-nilai"), rows=Array.from(t.querySelectorAll("tr")); let csv=rows.map(r=>Array.from(r.querySelectorAll("th, td")).map(c=>`"${c.innerText}"`).join(",")).join("\n"); let blob=new Blob(["\uFEFF"+csv],{type:'text/csv;charset=utf-8;'}); let link=document.createElement("a"); link.href=URL.createObjectURL(blob); link.download=`Rekap_Nilai_${Date.now()}.csv`; document.body.appendChild(link); link.click(); document.body.removeChild(link); };
+window.exportExcelNilai=function(){ let t=document.getElementById("tabel-spreadsheet-nilai"), rows=Array.from(t.querySelectorAll("tr")); let csv=rows.map(r=>Array.from(r.querySelectorAll("th, td")).map(c=>`"${c.innerText}"`).join(",")).join("\n"); let blob=new Blob(["\uFEFF"+csv],{type:'text/csv;charset=utf-8;'}); let link=document.createElement("a"); link.style.display="none"; link.href=URL.createObjectURL(blob); link.download=`Rekap_Nilai_${Date.now()}.csv`; document.body.appendChild(link); link.click(); document.body.removeChild(link); setTimeout(() => URL.revokeObjectURL(link.href), 100); };
 window.tutupLatihanMandiri=function(){ if(confirm("Keluar?")){ document.getElementById('temporary-quiz-room').style.display='none'; document.getElementById('temporary-quiz-container').innerHTML=""; document.body.style.overflow='auto'; } };
 
 // (A) FITUR DELETE GAMBAR DENGAN KEYBOARD
@@ -2934,9 +2934,13 @@ window.unduhRekapCSVPerKelas = function() {
     });
     var blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     var link = document.createElement("a");
+    link.style.display = 'none';
     link.href = URL.createObjectURL(blob);
     link.download = 'Rekap_Nilai_' + filterKls.replace(/\s+/g, '_') + '.csv';
+    document.body.appendChild(link);
     link.click();
+    document.body.removeChild(link);
+    setTimeout(function() { URL.revokeObjectURL(link.href); }, 100);
 };
 
 // ============================================================================
@@ -4431,8 +4435,12 @@ window.cetakPaketTerpilih = function(tipe) {
                 var blob = new Blob(['\\ufeff', htmlStr], { type: 'application/msword' }); 
                 var url = URL.createObjectURL(blob); 
                 var a = document.createElement('a'); 
+                a.style.display = 'none';
                 a.href = url; a.download = 'Soal_${judulFile}.doc'; 
-                document.body.appendChild(a); a.click(); document.body.removeChild(a);
+                document.body.appendChild(a); 
+                a.click(); 
+                document.body.removeChild(a);
+                setTimeout(function() { URL.revokeObjectURL(url); }, 100);
             }
         </script>
     </body></html>
