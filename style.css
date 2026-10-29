@@ -977,10 +977,10 @@ input, select, textarea { box-sizing: border-box !important; max-width: 100% !im
     object-fit: contain !important; margin: 0 auto !important; 
 }
 
-/* PATCH: Memaksa Sub-Menu HP Selalu Paling Atas (Tidak Tenggelam) */
-.navbar { z-index: 999999 !important; }
+/* PATCH: Memaksa Sub-Menu Atas Tanpa Menutupi Modal Pop-up */
+.navbar { z-index: 2000 !important; }
 .navbar ul ul { 
-    z-index: 9999999 !important; 
+    z-index: 2005 !important; 
     position: fixed !important; 
     box-shadow: 0 15px 40px rgba(0,0,0,0.3) !important;
 }
