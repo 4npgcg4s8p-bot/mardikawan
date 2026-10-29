@@ -60,8 +60,34 @@ document.addEventListener('selectstart', e => { if(window.isStrictUjianActive) e
 
 window.bukaModal = function(id) { document.getElementById(id).style.display = 'flex'; };
 window.tutupModal = function(id) { document.getElementById(id).style.display = 'none'; };
-window.tutupModalHasilQuiz = function() { window.tutupModal('modal-quiz-result'); };
-
+window.tutupModalHasilQuiz = function() {
+    // 1. Tutup pop-up nilai
+    window.tutupModal('modal-quiz-result');
+    
+    // 2. Bersihkan dan sembunyikan ruang Ujian Ketat
+    var strictRoom = document.getElementById('ujian-strict-room');
+    if (strictRoom) {
+        strictRoom.style.display = 'none';
+        var strictContainer = document.getElementById('ujian-strict-container');
+        if (strictContainer) strictContainer.innerHTML = '';
+    }
+    
+    // 3. Bersihkan dan sembunyikan ruang Latihan Mandiri
+    var tempRoom = document.getElementById('temporary-quiz-room');
+    if (tempRoom) {
+        tempRoom.style.display = 'none';
+        var tempContainer = document.getElementById('temporary-quiz-container');
+        if (tempContainer) tempContainer.innerHTML = '';
+    }
+    
+    // 4. Normalisasi layar dan hapus proteksi sistem
+    document.body.style.overflow = 'auto';
+    document.body.classList.remove('strict-mode-active');
+    window.isStrictUjianActive = false;
+    
+    // 5. Kembalikan posisi web ke paling atas (Beranda)
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+};
 window.tutupUjianStrict = function() {
     if(window.isStrictUjianActive) { alert("Selesaikan dan kumpulkan ujian terlebih dahulu!"); return; }
     document.getElementById('ujian-strict-room').style.display='none';
