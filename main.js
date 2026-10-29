@@ -3915,138 +3915,73 @@ var intervalPrak = setInterval(function() {
         if (info) info.innerText = 'Slide ' + (targetIdx + 1) + ' / ' + slides.length;
     };
 
-    window.fullscreenSlidePDF = function(btn) {
-    var wrapper = btn.closest('.mardi-pdf-slider');
-    if (!wrapper) return;
-    
-    // Gunakan Fullscreen API jika browser mendukung, jika gagal panggil pseudo-fullscreen
-    if (wrapper.requestFullscreen || wrapper.webkitRequestFullscreen) {
-        if (!document.fullscreenElement && !document.webkitFullscreenElement) {
-            if (wrapper.requestFullscreen) {
-                wrapper.requestFullscreen().catch(function() { wrapper.classList.toggle('pseudo-fullscreen'); });
-            } else if (wrapper.webkitRequestFullscreen) {
-                wrapper.webkitRequestFullscreen();
-            }
+    // ============================================================================
+// SISTEM FULLSCREEN UNIVERSAL (PDF & VIDEO)
+// ============================================================================
+window.jalankanFiturFullscreen = function(elem) {
+    if (!document.fullscreenElement && !document.webkitFullscreenElement && !document.mozFullScreenElement && !document.msFullscreenElement) {
+        // Coba masuk Fullscreen pakai API Browser asli
+        if (elem.requestFullscreen) {
+            elem.requestFullscreen().catch(function() { elem.classList.add('pseudo-fullscreen'); });
+        } else if (elem.webkitRequestFullscreen) {
+            elem.webkitRequestFullscreen();
+        } else if (elem.mozRequestFullScreen) {
+            elem.mozRequestFullScreen();
+        } else if (elem.msRequestFullscreen) {
+            elem.msRequestFullscreen();
         } else {
-            if (document.exitFullscreen) document.exitFullscreen();
-            else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+            elem.classList.add('pseudo-fullscreen'); // Fallback jika gagal
         }
     } else {
-        // Fallback untuk iPhone / iPad
-        wrapper.classList.toggle('pseudo-fullscreen');
-        document.body.style.overflow = wrapper.classList.contains('pseudo-fullscreen') ? 'hidden' : 'auto';
+        // Keluar Fullscreen jika sedang aktif
+        if (document.exitFullscreen) document.exitFullscreen();
+        else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+        else if (document.mozCancelFullScreen) document.mozCancelFullScreen();
+        else if (document.msExitFullscreen) document.msExitFullscreen();
+        elem.classList.remove('pseudo-fullscreen');
     }
+    
+    // Jika mode pseudo-fullscreen aktif (karena ditolak Apple/iOS), tambahkan tombol keluar darurat
+    setTimeout(function() {
+        if (elem.classList.contains('pseudo-fullscreen')) {
+            document.body.style.overflow = 'hidden';
+            if (!elem.querySelector('.btn-close-pseudo')) {
+                var btnX = document.createElement('button');
+                btnX.className = 'btn-close-pseudo';
+                btnX.innerHTML = '✖ Keluar Fullscreen';
+                btnX.style.cssText = 'position:absolute; top:20px; right:20px; z-index:999999; background:rgba(231,76,60,0.9); color:#fff; border:none; padding:10px 15px; border-radius:30px; font-weight:bold; cursor:pointer; box-shadow:0 5px 15px rgba(0,0,0,0.5);';
+                btnX.onclick = function(e) {
+                    e.stopPropagation();
+                    elem.classList.remove('pseudo-fullscreen');
+                    document.body.style.overflow = 'auto';
+                    btnX.remove();
+                };
+                elem.appendChild(btnX);
+            }
+        } else {
+            document.body.style.overflow = 'auto';
+            var btnX = elem.querySelector('.btn-close-pseudo');
+            if (btnX) btnX.remove();
+        }
+    }, 200);
 };
 
-    // 4. Fungsi Konversi File PDF Menjadi Array Gambar Slide Ringan
-    async function ubahPDFJadiSlidesHTML(file, statusEl) {
-        if (!window.pdfjsLib) {
-            throw new Error("Mesin PDF masih dimuat, tunggu 2 detik lalu klik lagi.");
-        }
-        var arrayBuffer = await file.arrayBuffer();
-        var pdf = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-        var totalHal = pdf.numPages;
-        var daftarGambarHTML = '';
+window.fullscreenSlidePDF = function(btn) {
+    var wrapper = btn.closest('.mardi-pdf-slider');
+    if (wrapper) window.jalankanFiturFullscreen(wrapper);
+};
 
-        for (var p = 1; p <= totalHal; p++) {
-            statusEl.innerText = "⏳ Mengubah PDF jadi Slide: Halaman " + p + " dari " + totalHal + "...";
-            var page = await pdf.getPage(p);
-            var viewportAsli = page.getViewport({ scale: 1 });
-            var scale = 900 / viewportAsli.width;
-            if (scale > 1.5) scale = 1.5;
-            var viewport = page.getViewport({ scale: scale });
-
-            var canvas = document.createElement('canvas');
-            canvas.width = Math.round(viewport.width);
-            canvas.height = Math.round(viewport.height);
-            var ctx = canvas.getContext('2d');
-
-            await page.render({ canvasContext: ctx, viewport: viewport }).promise;
-            var imgData = canvas.toDataURL('image/jpeg', 0.68);
-            var tampilAwal = (p === 1) ? 'block' : 'none';
-
-            daftarGambarHTML += '<img class="mardi-slide-img" src="' + imgData + '" style="display:' + tampilAwal + '; width:100%; max-height:520px; object-fit:contain; margin:0 auto; user-select:none;">';
-        }
-
-        return '<div class="mardi-pdf-slider" contenteditable="false" style="max-width:800px; margin:20px auto; background:#1e272e; border-radius:12px; overflow:hidden; box-shadow:0 8px 25px rgba(0,0,0,0.25); font-family:sans-serif;">' +
-            '<div style="position:relative; background:#0f1419; min-height:280px; display:flex; align-items:center; justify-content:center; padding:10px;">' +
-                '<button type="button" onclick="window.geserSlidePDF(this, -1)" style="position:absolute; left:12px; top:50%; transform:translateY(-50%); background:rgba(0,0,0,0.65); color:#fff; border:none; width:42px; height:42px; border-radius:50%; font-size:20px; cursor:pointer; z-index:5;">❮</button>' +
-                daftarGambarHTML +
-                '<button type="button" onclick="window.geserSlidePDF(this, 1)" style="position:absolute; right:12px; top:50%; transform:translateY(-50%); background:rgba(0,0,0,0.65); color:#fff; border:none; width:42px; height:42px; border-radius:50%; font-size:20px; cursor:pointer; z-index:5;">❯</button>' +
-            '</div>' +
-            '<div style="display:flex; align-items:center; justify-content:space-between; padding:10px 16px; background:#2c3e50; color:#fff;">' +
-                '<button type="button" onclick="window.geserSlidePDF(this, -1)" style="background:#3498db; color:#fff; border:none; padding:7px 14px; border-radius:6px; cursor:pointer; font-weight:bold; font-size:13px;">⬅️ Geser Kiri</button>' +
-                '<span class="mardi-slide-counter" style="font-weight:bold; font-size:14px;">Slide 1 / ' + totalHal + '</span>' +
-                '<div style="display:flex; gap:8px;">' +
-                    '<button type="button" onclick="window.geserSlidePDF(this, 1)" style="background:#3498db; color:#fff; border:none; padding:7px 14px; border-radius:6px; cursor:pointer; font-weight:bold; font-size:13px;">Geser Kanan ➡️</button>' +
-                    '<button type="button" onclick="window.fullscreenSlidePDF(this)" style="background:#8e44ad; color:#fff; border:none; padding:7px 12px; border-radius:6px; cursor:pointer; font-weight:bold; font-size:13px;">🔲 Full</button>' +
-                '</div>' +
-            '</div>' +
-        '</div><br>';
-    }
-
-    // 5. Fungsi Kontrol Video Player (Desain Minimalis Overlay)
-    window.mardiVidToggle = function(id) {
-        let v = document.getElementById(id); let c = document.getElementById(id + '_wrap').querySelector('.mardi-vid-controls');
-        let btn = document.getElementById(id + '_playBtn');
-        if (v.paused) { 
-            v.play(); 
-            btn.innerHTML = '<svg viewBox="0 0 24 24" width="28" height="28" fill="white"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>'; 
-            c.style.opacity = 0; 
-        } else { 
-            v.pause(); 
-            btn.innerHTML = '<svg viewBox="0 0 24 24" width="28" height="28" fill="white"><path d="M8 5v14l11-7z"/></svg>'; 
-            c.style.opacity = 1; 
-        }
-    };
-    window.mardiVidUpdate = function(id) {
-        let v = document.getElementById(id); let prog = document.getElementById(id + '_progress'); let time = document.getElementById(id + '_time');
-        if (!v || !prog || !time) return;
-        prog.style.width = ((v.currentTime / v.duration) * 100) + '%';
-        time.innerHTML = mFormTime(v.currentTime) + ' / ' + mFormTime(v.duration);
-    };
-    window.mardiVidMeta = function(id) { window.mardiVidUpdate(id); };
-    window.mardiVidSeek = function(e, id) {
-        let v = document.getElementById(id); let bar = e.currentTarget; let rect = bar.getBoundingClientRect();
-        v.currentTime = ((e.clientX - rect.left) / rect.width) * v.duration;
-    };
-    window.mardiVidSkip = function(id, sec) { document.getElementById(id).currentTime += sec; };
-    window.mardiVidMute = function(id) {
-        let v = document.getElementById(id); let btn = document.getElementById(id + '_muteBtn');
-        v.muted = !v.muted;
-        btn.innerHTML = v.muted 
-            ? '<svg viewBox="0 0 24 24" width="24" height="24" fill="white"><path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/></svg>'
-            : '<svg viewBox="0 0 24 24" width="24" height="24" fill="white"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>';
-    };
-    window.mardiVidSpeed = function(id, speed) { document.getElementById(id).playbackRate = parseFloat(speed); };
-    
-    // KUNCI PERBAIKAN: Fungsi Toggle Fullscreen & Keluar
-    window.mardiVidFS = function(id) {
-    let wrap = document.getElementById(id + '_wrap');
-    let vid = document.getElementById(id);
+window.mardiVidFS = function(id) {
+    var wrap = document.getElementById(id + '_wrap');
+    var vid = document.getElementById(id);
     if (!wrap) return;
 
-    // iPhone memiliki API fullscreen khusus langsung di tag <video>
+    // Khusus iPhone Video Player (Mendukung Fullscreen Bawaan Video di iOS)
     if (vid && vid.webkitEnterFullscreen && /iPhone|iPod/i.test(navigator.userAgent)) {
         vid.webkitEnterFullscreen();
         return;
     }
-
-    if (wrap.requestFullscreen || wrap.webkitRequestFullscreen) {
-        if (!document.fullscreenElement && !document.webkitFullscreenElement) {
-            if (wrap.requestFullscreen) {
-                wrap.requestFullscreen().catch(function() { wrap.classList.toggle('pseudo-fullscreen'); });
-            } else if (wrap.webkitRequestFullscreen) {
-                wrap.webkitRequestFullscreen();
-            }
-        } else {
-            if (document.exitFullscreen) document.exitFullscreen();
-            else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
-        }
-    } else {
-        wrap.classList.toggle('pseudo-fullscreen');
-        document.body.style.overflow = wrap.classList.contains('pseudo-fullscreen') ? 'hidden' : 'auto';
-    }
+    window.jalankanFiturFullscreen(wrap);
 };
 
     function rakitPlayerVideo(url) {
