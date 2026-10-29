@@ -4923,3 +4923,86 @@ window.keluarBlockFullscreen = function() {
 };
 
 window.jalankanFiturFullscreen = function(elem) { window.eksekusiFullscreenTangguh(elem, true); };
+
+// ============================================================================
+// PENGEMBALIAN FUNGSI REMINDER (ABSENSI & UJIAN)
+// ============================================================================
+window.tampilkanUIReminder = function() {
+    var body = document.getElementById('body-ruang-administrasi');
+    if (!body) return;
+    
+    var klsAktif = window.kelasAdminUtama || window.ambilDaftarKelasAktif()[0];
+    var isSemuaKelas = (window.modeFilterReminder === 'SEMUA_KELAS');
+    var daftarTarget = isSemuaKelas ? window.ambilDaftarKelasAktif() : [klsAktif];
+    var dataRem = window.kumpulkanDataReminder(daftarTarget);
+
+    var semuaNamaUjian = new Set();
+    Object.keys(window.bankUjianGlobal || {}).forEach(function(u) { semuaNamaUjian.add(u); });
+    Object.keys(window.dataRekapNilai || {}).forEach(function(u) { semuaNamaUjian.add(u); });
+    Object.values(window.rekapNilaiGlobal || {}).forEach(function(d) { if (d && d.ujian) semuaNamaUjian.add(d.ujian); });
+    
+    var opsiUjianHtml = '<option value="">-- Pilih Paket Ujian untuk Dipantau di Kelas ' + klsAktif + ' --</option>' +
+        Array.from(semuaNamaUjian).sort().map(function(u) { return '<option value="' + u + '">' + u + '</option>'; }).join('');
+
+    var htmlAbsensi = '';
+    if (dataRem.grupAbsensi.length === 0) {
+        htmlAbsensi = '<div style="padding:20px; text-align:center; color:#64748b; background:#f8fafc; border:1px dashed #cbd5e1; border-radius:8px;">🎉 Tidak ada siswa yang ketinggalan materi pelajaran pada ' + (isSemuaKelas ? 'seluruh kelas.' : 'kelas ' + klsAktif + '.') + '</div>';
+    } else {
+        htmlAbsensi = dataRem.grupAbsensi.map(function(grp) {
+            if (grp.items.length === 1) {
+                var item = grp.items[0];
+                return '<div class="reminder-card-single">' +
+                    '<div><span style="background:#0b3954; color:#fff; padding:2px 8px; border-radius:4px; font-size:11px; font-weight:bold; margin-right:6px;">' + item.kelas + '</span><span style="color:#64748b; font-size:12px; margin-right:6px;">[' + item.waktu + ']</span> ' + window.labelStatusAbsenLengkap(item.status) + ' — <b style="color:#d35400; font-size:14px;">' + item.nama + '</b> perlu mengikuti <b style="color:#0b3954; text-decoration:underline;">' + item.materi + '</b></div>' +
+                    '<button type="button" class="btn-dismiss-reminder" title="Selesai / Hapus Pengingat" onclick="window.dismissSatuReminder(\'' + item.id + '\', event)">✕</button></div>';
+            }
+            var isOpen = !!window.statusBukaDropdownReminder[grp.groupKey];
+            var gabunganId = grp.items.map(function(i) { return i.id; }).join('|');
+            var subRows = grp.items.map(function(item, idx) {
+                return '<div class="reminder-sub-row"><div><span style="font-weight:bold; color:#64748b; margin-right:6px;">' + (idx + 1) + '.</span>' + window.labelStatusAbsenLengkap(item.status) + ' — <b style="color:#d35400;">' + item.nama + '</b> perlu mengikuti <b style="color:#0b3954;">' + item.materi + '</b></div><button type="button" class="btn-dismiss-reminder" title="Selesai untuk ' + item.nama + '" onclick="window.dismissSatuReminder(\'' + item.id + '\', event)">✕</button></div>';
+            }).join('');
+            return '<div class="reminder-group-box"><div class="reminder-group-header" onclick="window.toggleDropdownGrupReminder(\'' + grp.groupKey + '\')"><div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;"><span id="rem-icon-' + grp.groupKey + '" style="font-weight:bold; font-size:15px; color:#0b3954; width:14px;">' + (isOpen ? '▾' : '▸') + '</span><span style="background:#0b3954; color:#fff; padding:2px 8px; border-radius:4px; font-size:11px; font-weight:bold;">' + grp.kelas + '</span><span style="color:#475569; font-weight:600;">[' + grp.waktu + ']</span><span style="background:#fef3c7; color:#b45309; padding:2px 9px; border-radius:12px; font-weight:bold; font-size:12px;">👥 ' + grp.items.length + ' Siswa Tidak Hadir</span><span>perlu mengikuti <b style="color:#0b3954; text-decoration:underline;">' + grp.materi + '</b></span></div><button type="button" class="btn-dismiss-reminder" title="Hapus Semua di Grup Ini" onclick="window.dismissGrupReminder(\'' + gabunganId + '\', event)">✕</button></div><div id="rem-body-' + grp.groupKey + '" class="reminder-group-body' + (isOpen ? ' open' : '') + '">' + subRows + '</div></div>';
+        }).join('');
+    }
+
+    var htmlUjian = '';
+    if (dataRem.grupUjian.length === 0) {
+        htmlUjian = '<div style="padding:20px; text-align:center; color:#64748b; background:#f8fafc; border:1px dashed #cbd5e1; border-radius:8px;">🎉 Semua siswa pada ' + (isSemuaKelas ? 'seluruh kelas' : 'kelas ' + klsAktif) + ' telah mengikuti ujian yang dipantau.</div>';
+    } else {
+        htmlUjian = dataRem.grupUjian.map(function(grp) {
+            if (grp.items.length === 1) {
+                var item = grp.items[0];
+                return '<div class="reminder-card-single exam-type"><div><span style="background:#c0392b; color:#fff; padding:2px 8px; border-radius:4px; font-size:11px; font-weight:bold; margin-right:6px;">' + item.kelas + '</span><b style="color:#c0392b; font-size:14px;">' + item.nama + '</b> perlu mengikuti ujian <b style="color:#0b3954; text-decoration:underline;">' + item.ujian + '</b></div><button type="button" class="btn-dismiss-reminder" onclick="window.dismissSatuReminder(\'' + item.id + '\', event)">✕</button></div>';
+            }
+            var isOpen = !!window.statusBukaDropdownReminder[grp.groupKey];
+            var gabunganId = grp.items.map(function(i) { return i.id; }).join('|');
+            var subRows = grp.items.map(function(item, idx) {
+                return '<div class="reminder-sub-row"><div><span style="font-weight:bold; color:#64748b; margin-right:6px;">' + (idx + 1) + '.</span><b style="color:#c0392b;">' + item.nama + '</b> perlu mengikuti ujian <b style="color:#0b3954;">' + item.ujian + '</b></div><button type="button" class="btn-dismiss-reminder" onclick="window.dismissSatuReminder(\'' + item.id + '\', event)">✕</button></div>';
+            }).join('');
+            return '<div class="reminder-group-box exam-type"><div class="reminder-group-header" onclick="window.toggleDropdownGrupReminder(\'' + grp.groupKey + '\')"><div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;"><span id="rem-icon-' + grp.groupKey + '" style="font-weight:bold; font-size:15px; color:#8e44ad; width:14px;">' + (isOpen ? '▾' : '▸') + '</span><span style="background:#8e44ad; color:#fff; padding:2px 8px; border-radius:4px; font-size:11px; font-weight:bold;">' + grp.kelas + '</span><span style="background:#fadbd8; color:#c0392b; padding:2px 9px; border-radius:12px; font-weight:bold; font-size:12px;">🎯 ' + grp.items.length + ' Siswa Belum Ujian</span><span>perlu mengikuti ujian <b style="color:#0b3954; text-decoration:underline;">' + grp.ujian + '</b></span></div><button type="button" class="btn-dismiss-reminder" onclick="window.dismissGrupReminder(\'' + gabunganId + '\', event)">✕</button></div><div id="rem-body-' + grp.groupKey + '" class="reminder-group-body' + (isOpen ? ' open' : '') + '">' + subRows + '</div></div>';
+        }).join('');
+    }
+
+    body.innerHTML =
+        '<div style="display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:10px; background:#f8fafc; padding:12px 15px; border:1px solid #e2e8f0; border-radius:10px; margin-bottom:16px;">' +
+            '<div style="display:flex; align-items:center; gap:8px;">' +
+                '<span style="font-weight:bold; font-size:13px; color:#0b3954;">Tampilkan Pengingat:</span>' +
+                '<button type="button" onclick="window.modeFilterReminder=\'KELAS_INI\'; window.tampilkanUIReminder();" style="padding:6px 12px; border-radius:6px; border:1px solid #0b3954; font-weight:bold; font-size:12px; cursor:pointer; background:' + (!isSemuaKelas ? '#0b3954' : '#fff') + '; color:' + (!isSemuaKelas ? '#fff' : '#0b3954') + ';">🏫 Khusus Kelas ' + klsAktif + '</button>' +
+                '<button type="button" onclick="window.modeFilterReminder=\'SEMUA_KELAS\'; window.tampilkanUIReminder();" style="padding:6px 12px; border-radius:6px; border:1px solid #0b3954; font-weight:bold; font-size:12px; cursor:pointer; background:' + (isSemuaKelas ? '#0b3954' : '#fff') + '; color:' + (isSemuaKelas ? '#fff' : '#0b3954') + ';">📂 Semua Kelas</button>' +
+            '</div>' +
+            '<div style="font-size:12px; color:#64748b;">💡 Pengingat tidak akan hilang sebelum tombol <b>✕</b> ditekan.</div>' +
+        '</div>' +
+        '<div style="margin-bottom:22px;">' +
+            '<h4 style="margin:0 0 10px 0; color:#0b3954; font-size:14px; display:flex; align-items:center; gap:8px;">📚 1. Pengingat Siswa Ketinggalan Materi Pelajaran (Status: -, A, S, I)</h4>' +
+            htmlAbsensi +
+        '</div>' +
+        '<div>' +
+            '<div style="display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:10px; margin-bottom:10px;">' +
+                '<h4 style="margin:0; color:#c0392b; font-size:14px;">🎯 2. Pengingat Siswa Belum Mengikuti Ujian</h4>' +
+                '<div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">' +
+                    '<select id="select-pantau-ujian-baru" style="padding:6px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:12px;">' + opsiUjianHtml + '</select>' +
+                    '<button type="button" onclick="window.tambahPantauUjianKelas()" style="background:#8e44ad; color:#fff; border:none; padding:7px 12px; border-radius:6px; font-size:11px; font-weight:bold; cursor:pointer;">+ Cek Ujian di Kelas ' + klsAktif + '</button>' +
+                '</div>' +
+            '</div>' +
+            htmlUjian +
+        '</div>';
+};
