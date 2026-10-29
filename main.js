@@ -3607,10 +3607,17 @@ var intervalPrak = setInterval(function() {
 
 // 2. Suntikkan Template Jendela (Modal) Praktikum ke dalam Web
 var htmlModalPrak = `
-<div id="modal-praktikum" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); z-index:99999; overflow-y:auto; font-family:'Poppins',sans-serif;">
-    <div style="background:#fff; width:90%; max-width:850px; margin:40px auto; padding:30px; border-radius:12px; box-shadow:0 10px 30px rgba(0,0,0,0.5);">
-        <span onclick="document.getElementById('modal-praktikum').style.display='none'" style="float:right; cursor:pointer; font-size:28px; color:#e74c3c;">&times;</span>
-        <h2 style="color:#2c3e50; text-align:center; margin-bottom:25px; border-bottom:2px solid #ecf0f1; padding-bottom:10px;">🧪 Laporan Praktikum Sains</h2>
+<input type="text" id="prak-judul" placeholder="Judul Praktikum (Contoh: Uji Enzim Katalase)" style="width:100%; padding:12px; margin-bottom:15px; border:1px solid #bdc3c7; border-radius:6px; font-weight:bold; font-size:15px;">
+            <div style="display:flex; gap:15px; margin-bottom:15px; flex-wrap:wrap;">
+                <input type="text" id="prak-nama" placeholder="Nama Ketua Kelompok" style="flex:1; min-width:200px; padding:12px; border:1px solid #bdc3c7; border-radius:6px;">
+                <select id="prak-kelas" style="flex:1; min-width:150px; padding:12px; border:1px solid #bdc3c7; border-radius:6px;">
+                    <option value="">-- Pilih Kelas --</option>
+                    <option value="X">Kelas X</option>
+                    <option value="XI">Kelas XI</option>
+                    <option value="XII">Kelas XII</option>
+                </select>
+            </div>
+            <textarea id="prak-anggota" placeholder="Nama Anggota Kelompok (Pisahkan dengan baris baru / Enter)&#10;Anggota 1&#10;Anggota 2&#10;dst..." style="width:100%; height:80px; padding:10px; margin-bottom:20px; border:1px solid #bdc3c7; border-radius:6px; resize:vertical;"></textarea>
 
         <!-- TAMPILAN GURU (DASHBOARD KOREKSI) -->
         <div id="view-praktikum-guru" style="display:none;">
@@ -3720,7 +3727,7 @@ window.kirimLaporanPraktikum = async function(event) {
         var dbRestUrl = window.getRestDBUrl("laporan_praktikum/" + idLaporan);
 
         var payload = {
-            judul: judul, nama: nama, kelas: kelas,
+            judul: judul, nama: nama, anggota: anggota, kelas: kelas,
             bab1: bab1, bab2: bab2, bab3: bab3, bab4: bab4, kesimpulan: kes,
             lampiran: lampiranUrl, waktu: new Date().toLocaleString()
         };
@@ -3777,29 +3784,155 @@ window.muatDaftarLaporan = async function() {
     }
 };
 
-// 6. Pencetak Laporan ke Layar Guru
+// 3. Tambahan Tombol Cetak PDF Laporan di Dashboard Guru
+const origBukaLaporanSiswa = window.bukaLaporanSiswa;
 window.bukaLaporanSiswa = function() {
-    var key = document.getElementById('select-laporan-siswa').value;
-    var wadah = document.getElementById('tempat-laporan-guru');
-    if (!key) { wadah.innerHTML = '<i>Pilih siswa untuk melihat laporan.</i>'; return; }
-
-    var lap = window.dataLaporanTemp[key];
-    var imgHtml = lap.lampiran ? '<a href="'+lap.lampiran+'" target="_blank"><img src="'+lap.lampiran+'" style="max-width:100%; max-height:400px; border-radius:8px; margin-top:15px; box-shadow:0 4px 10px rgba(0,0,0,0.1); cursor:zoom-in;" title="Klik untuk memperbesar"></a>' : '<i>(Siswa tidak melampirkan foto dokumentasi)</i>';
+    if (typeof origBukaLaporanSiswa === 'function') origBukaLaporanSiswa();
+    const wadah = document.getElementById('tempat-laporan-guru');
+    const key = document.getElementById('select-laporan-siswa').value;
     
-    var formatBab = (judul, isi) => '<div style="margin-bottom:20px;"><h4 style="margin:0 0 5px 0; color:#2980b9; border-bottom:1px solid #ecf0f1; padding-bottom:5px;">'+judul+'</h4><div style="background:#fff; padding:15px; border-left:4px solid #3498db; border-radius:0 4px 4px 0; white-space:pre-wrap; box-shadow:0 1px 3px rgba(0,0,0,0.05); font-size:14px;">'+(isi || '-')+'</div></div>';
+    if (key && !document.getElementById('btn-print-laporan')) {
+        const btnPrint = document.createElement('button');
+        btnPrint.id = 'btn-print-laporan';
+        btnPrint.innerHTML = '🖨️ Cetak PDF Laporan';
+        btnPrint.style.cssText = 'background:#2c3e50; color:#fff; border:none; padding:10px 15px; border-radius:6px; cursor:pointer; font-weight:bold; float:right; margin-bottom:15px;';
+        
+        btnPrint.onclick = function() {
+            var lap = window.dataLaporanTemp[key];
+            if(!lap) return alert("Data gagal dimuat.");
 
-    wadah.innerHTML = 
-        '<div style="border-bottom:2px dashed #bdc3c7; padding-bottom:15px; margin-bottom:20px; text-align:center;">' +
-            '<h2 style="margin:0; text-transform:uppercase; color:#2c3e50; font-size:20px;">' + lap.judul + '</h2>' +
-            '<p style="margin:5px 0 0 0; font-size:16px;"><b>' + lap.nama + '</b> (Kelas ' + lap.kelas + ')</p>' +
-            '<small style="color:#7f8c8d;">Dikirim pada: ' + lap.waktu + '</small>' +
-        '</div>' +
-        formatBab('BAB I: Pendahuluan', lap.bab1) +
-        formatBab('BAB II: Dasar Teori', lap.bab2) +
-        formatBab('BAB III: Alat, Bahan & Cara Kerja', lap.bab3) +
-        formatBab('BAB IV: Hasil Pengamatan & Pembahasan', lap.bab4) +
-        formatBab('BAB V: Kesimpulan', lap.kesimpulan) +
-        '<div style="margin-bottom:15px;"><h4 style="margin:0 0 5px 0; color:#2980b9;">📸 Lampiran Dokumentasi</h4>' + imgHtml + '</div>';
+            // Susun baris nama anggota
+            var strAnggota = '';
+            if (lap.anggota && lap.anggota !== '-') {
+                var arrAnggota = lap.anggota.split('\n').filter(Boolean);
+                arrAnggota.forEach(function(nama) {
+                    strAnggota += '<div style="font-size:14pt; margin-top:5px;">' + nama.trim() + '</div>';
+                });
+            }
+
+            var tahunSekarang = new Date().getFullYear();
+
+            // Struktur HTML untuk dicetak
+            var htmlCetak = `
+            <html><head><title>Cetak Laporan Praktikum</title>
+            <style>
+                @media print {
+                    @page { margin: 2.5cm; }
+                    .page-break { page-break-before: always; }
+                    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+                }
+                body { font-family: 'Times New Roman', serif; line-height: 1.5; color: #000; padding: 20px; max-width: 800px; margin: 0 auto; }
+                
+                /* STYLE COVER PAGE */
+                .cover-page {
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    justify-content: center;
+                    text-align: center;
+                    min-height: 90vh; /* Agar pas satu halaman penuh */
+                }
+                .cover-title {
+                    font-size: 16pt;
+                    font-weight: bold;
+                    text-transform: uppercase;
+                    margin-bottom: 40px;
+                }
+                .cover-logo {
+                    width: 180px;
+                    height: auto;
+                    margin-bottom: 40px;
+                }
+                .cover-section {
+                    font-size: 14pt;
+                    font-weight: bold;
+                    margin-bottom: 40px;
+                }
+                .cover-footer {
+                    font-size: 16pt;
+                    font-weight: bold;
+                    text-transform: uppercase;
+                    margin-top: auto;
+                    padding-top: 60px;
+                }
+                
+                /* STYLE KONTEN ISI */
+                .content-page { padding-top: 20px; }
+                h4 { margin: 25px 0 10px 0; color: #000; font-size:14pt; border-bottom:1px solid #ccc; padding-bottom:5px;}
+                .content-box { 
+                    margin-bottom: 20px; 
+                    white-space: pre-wrap; 
+                    text-align: justify;
+                    font-size: 12pt;
+                }
+                img.lampiran { max-width: 100%; max-height: 500px; display: block; margin: 20px auto; }
+            </style>
+            </head><body>
+                
+                <!-- HALAMAN COVER -->
+                <div class="cover-page">
+                    <div class="cover-title">
+                        LAPORAN PRAKTIKUM LABORATORIUM<br><br>
+                        ${lap.judul.toUpperCase()}
+                    </div>
+                    
+                    <img src="https://i.ibb.co/3s6qM0Z/logo-bodhi.png" class="cover-logo" alt="Logo Bodhi Dharma">
+                    
+                    <div class="cover-section">
+                        PEMBIMBING:<br><br>
+                        Mahardika Wiryawan, S.Pd
+                    </div>
+                    
+                    <div class="cover-section">
+                        Oleh:<br><br>
+                        <div style="font-size:14pt;">Ketua: ${lap.nama}</div>
+                        ${strAnggota}
+                    </div>
+                    
+                    <div class="cover-footer">
+                        SMAS BODHI DHARMA<br>
+                        TAHUN ${tahunSekarang}
+                    </div>
+                </div>
+
+                <!-- HALAMAN KONTEN (Bab 1 s.d. Lampiran) -->
+                <div class="page-break content-page">
+                    <h4>BAB I: Pendahuluan (Latar Belakang & Tujuan)</h4>
+                    <div class="content-box">${lap.bab1 || '-'}</div>
+
+                    <h4>BAB II: Dasar Teori</h4>
+                    <div class="content-box">${lap.bab2 || '-'}</div>
+
+                    <h4>BAB III: Alat, Bahan & Cara Kerja</h4>
+                    <div class="content-box">${lap.bab3 || '-'}</div>
+
+                    <h4>BAB IV: Hasil Pengamatan & Pembahasan</h4>
+                    <div class="content-box">${lap.bab4 || '-'}</div>
+
+                    <h4>BAB V: Kesimpulan</h4>
+                    <div class="content-box">${lap.kesimpulan || '-'}</div>
+                    
+                    <h4>Lampiran Dokumentasi</h4>
+                    ${lap.lampiran ? `<img src="${lap.lampiran}" class="lampiran">` : '<i>(Siswa tidak melampirkan foto dokumentasi)</i>'}
+                </div>
+
+            </body></html>
+            `;
+            
+            const win = window.open('', '', 'width=900,height=800');
+            win.document.write(htmlCetak);
+            win.document.close();
+            win.focus();
+            
+            // Beri jeda agar logo termuat sebelum dialog print muncul
+            setTimeout(() => { 
+                win.print(); 
+                // Opsional: aktifkan perintah close jika ingin tab langsung tertutup setelah print
+                // win.close(); 
+            }, 1000);
+        };
+        wadah.insertBefore(btnPrint, wadah.firstChild);
+    }
 };
 
 // ==========================================
