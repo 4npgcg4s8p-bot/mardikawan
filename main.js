@@ -16,7 +16,7 @@ var tipTimer;
 window.kompresGambar = function(file, callback) {
     const reader = new FileReader();
     reader.onload = function(e) {
-        const img = new Image();
+         img = new Image();
         img.onload = function() {
             const canvas = document.createElement('canvas');
             const MAX_WIDTH = 1000; const MAX_HEIGHT = 1000;
@@ -3785,7 +3785,7 @@ window.muatDaftarLaporan = async function() {
 };
 
 // 3. Tambahan Tombol Cetak PDF Laporan di Dashboard Guru
-const origBukaLaporanSiswa = window.bukaLaporanSiswa;
+var origBukaLaporanSiswa = window.bukaLaporanSiswa;
 window.bukaLaporanSiswa = function() {
     if (typeof origBukaLaporanSiswa === 'function') origBukaLaporanSiswa();
     const wadah = document.getElementById('tempat-laporan-guru');
@@ -4281,7 +4281,7 @@ window.bukaModalPraktikum = function() {
 };
 
 // Modifikasi Pengumpulan Praktikum untuk menghapus Draft
-const origKirimLaporanPraktikum = window.kirimLaporanPraktikum;
+var origKirimLaporanPraktikum = window.kirimLaporanPraktikum;
 window.kirimLaporanPraktikum = async function(event) {
     await origKirimLaporanPraktikum(event);
     const statusEl = document.getElementById('prak-status');
@@ -4292,7 +4292,7 @@ window.kirimLaporanPraktikum = async function(event) {
 };
 
 // 3. Tambahan Tombol Cetak PDF Laporan di Dashboard Guru
-const origBukaLaporanSiswa = window.bukaLaporanSiswa;
+var origBukaLaporanSiswa = window.bukaLaporanSiswa;
 window.bukaLaporanSiswa = function() {
     if (typeof origBukaLaporanSiswa === 'function') origBukaLaporanSiswa();
     const wadah = document.getElementById('tempat-laporan-guru');
