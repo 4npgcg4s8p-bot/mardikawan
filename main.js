@@ -3890,11 +3890,27 @@ var intervalPrak = setInterval(function() {
     };
 
     window.fullscreenSlidePDF = function(btn) {
-        var wrapper = btn.closest('.mardi-pdf-slider');
-        if (!wrapper) return;
-        if (wrapper.requestFullscreen) wrapper.requestFullscreen();
-        else if (wrapper.webkitRequestFullscreen) wrapper.webkitRequestFullscreen();
-    };
+    var wrapper = btn.closest('.mardi-pdf-slider');
+    if (!wrapper) return;
+    
+    // Gunakan Fullscreen API jika browser mendukung, jika gagal panggil pseudo-fullscreen
+    if (wrapper.requestFullscreen || wrapper.webkitRequestFullscreen) {
+        if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+            if (wrapper.requestFullscreen) {
+                wrapper.requestFullscreen().catch(function() { wrapper.classList.toggle('pseudo-fullscreen'); });
+            } else if (wrapper.webkitRequestFullscreen) {
+                wrapper.webkitRequestFullscreen();
+            }
+        } else {
+            if (document.exitFullscreen) document.exitFullscreen();
+            else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+        }
+    } else {
+        // Fallback untuk iPhone / iPad
+        wrapper.classList.toggle('pseudo-fullscreen');
+        document.body.style.overflow = wrapper.classList.contains('pseudo-fullscreen') ? 'hidden' : 'auto';
+    }
+};
 
     // 4. Fungsi Konversi File PDF Menjadi Array Gambar Slide Ringan
     async function ubahPDFJadiSlidesHTML(file, statusEl) {
@@ -3980,22 +3996,32 @@ var intervalPrak = setInterval(function() {
     
     // KUNCI PERBAIKAN: Fungsi Toggle Fullscreen & Keluar
     window.mardiVidFS = function(id) {
-        let wrap = document.getElementById(id + '_wrap');
-        // Jika sedang TIDAK fullscreen, masuk fullscreen. Jika iya, keluar fullscreen.
+    let wrap = document.getElementById(id + '_wrap');
+    let vid = document.getElementById(id);
+    if (!wrap) return;
+
+    // iPhone memiliki API fullscreen khusus langsung di tag <video>
+    if (vid && vid.webkitEnterFullscreen && /iPhone|iPod/i.test(navigator.userAgent)) {
+        vid.webkitEnterFullscreen();
+        return;
+    }
+
+    if (wrap.requestFullscreen || wrap.webkitRequestFullscreen) {
         if (!document.fullscreenElement && !document.webkitFullscreenElement) {
-            if (wrap.requestFullscreen) wrap.requestFullscreen();
-            else if (wrap.webkitRequestFullscreen) wrap.webkitRequestFullscreen();
+            if (wrap.requestFullscreen) {
+                wrap.requestFullscreen().catch(function() { wrap.classList.toggle('pseudo-fullscreen'); });
+            } else if (wrap.webkitRequestFullscreen) {
+                wrap.webkitRequestFullscreen();
+            }
         } else {
             if (document.exitFullscreen) document.exitFullscreen();
             else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
         }
-    };
-    
-    function mFormTime(sec) {
-        if (isNaN(sec)) return "00:00";
-        let m = Math.floor(sec / 60), s = Math.floor(sec % 60);
-        return (m < 10 ? '0'+m : m) + ':' + (s < 10 ? '0'+s : s);
+    } else {
+        wrap.classList.toggle('pseudo-fullscreen');
+        document.body.style.overflow = wrap.classList.contains('pseudo-fullscreen') ? 'hidden' : 'auto';
     }
+};
 
     function rakitPlayerVideo(url) {
         let id = 'vid_' + Date.now();
